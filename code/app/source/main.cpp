@@ -1,3 +1,4 @@
+#include <inkblot/basic/logging.hpp>
 #include <inkblot/basic/multi_array.hpp>
 
 #include <print>
@@ -8,7 +9,17 @@ struct point {
     float Z;
 };
 
+struct stdout_sink : ink::logging_sink
+{
+    auto push(const ink::logging_record &Record) -> void override
+    {
+        std::println("[{}] >> {} - {}({}:{})", Record.Level, Record.Message, Record.SourceLocation.File, Record.SourceLocation.Line, Record.SourceLocation.Column);
+    }
+};
+
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int {
+    ink::push_logging_sink("stdout", std::make_unique<stdout_sink>());
+
     auto Points = ink::multi_array<point, 5zu>::from(
         point{.X = 1.0f, .Y = 1.0f, .Z = 1.0f},
         point{.X = 2.0f, .Y = 2.0f, .Z = 2.0f},
@@ -27,14 +38,14 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int {
 
     for (auto Idx = 0zu; Idx < Points.size(); ++Idx) {
         const auto Point = Points[Idx];
-        std::println(" - Point #{} = ({}, {}, {})", Idx + 1zu, *Point.X, *Point.Y, *Point.Z);
+        ink::log_info(" - Point #{} = ({}, {}, {})", Idx + 1zu, *Point.X, *Point.Y, *Point.Z);
     }
 
     for (const auto &X : Points.values<^^point::X>()) {
-        std::println("X = {}", X);
+        ink::log_info("X = {}", X);
     }
 
-    std::println("Points[2].X == {}", Points.values<^^point::X>()[2zu]);
+    ink::log_info("Points[2].X == {}", Points.values<^^point::X>()[2zu]);
 
     return 0;
 }

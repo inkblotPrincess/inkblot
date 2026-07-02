@@ -9,7 +9,8 @@
 #include <span>
 #include <type_traits>
 
-namespace ink {
+namespace ink 
+{
     namespace detail 
     {
         template <typename type, std::meta::info Member>
