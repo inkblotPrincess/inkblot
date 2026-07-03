@@ -1,15 +1,15 @@
 #pragma once
 
+#include <inkblot/basic/formatter.hpp>
+
 #include <algorithm>
 #include <array>
 #include <concepts>
 #include <cstdint>
 #include <format>
 #include <memory>
-#include <meta>
 #include <source_location>
 #include <string_view>
-#include <utility>
 
 namespace ink 
 {
@@ -39,8 +39,8 @@ namespace ink
             }(SourceLocation.file_name());
 
             return {
-                .File = File,
-                .Line = SourceLocation.line(),
+                .File   = File,
+                .Line   = SourceLocation.line(),
                 .Column = SourceLocation.column()
             };
         }
@@ -62,43 +62,6 @@ namespace ink
 
     namespace detail
     {
-        struct to_string_cpo
-        {
-            template <typename type>
-                requires std::is_enum_v<type>
-            constexpr auto operator()(const type &Obj) -> std::string
-            {
-                template for (constexpr auto EnumValue : std::define_static_array(std::meta::enumerators_of(^^type))) {
-                    if (Obj == [:EnumValue:]) {
-                        return std::string{std::meta::identifier_of(EnumValue)};
-                    }
-                }
-
-                std::unreachable();
-            }
-        };
-
-        constinit inline auto ToString = to_string_cpo{};
-
-        template <typename type> 
-        struct formatter 
-        {
-            constexpr auto parse(std::format_parse_context &FormatContext) 
-            {
-                return std::ranges::begin(FormatContext);
-            }
-
-            constexpr auto format(const type &Object, std::format_context &FormatContext) const 
-            {
-                return std::format_to(FormatContext.out(), "{}", ToString(Object));
-            }
-        };
-
-        template <typename type>
-        concept formattable = requires(type Obj) {
-            { ToString(Obj) } -> std::convertible_to<std::string>;
-        };
-
         template <typename ...arg_types>
         struct logging_config 
         {
@@ -167,8 +130,3 @@ namespace ink
         detail::log_message(logging_level::fatal, Config, std::forward<arg_types>(Arguments)...);
     }
 } // namespace ink
-
-template <ink::detail::formattable type> 
-struct std::formatter<type> : ink::detail::formatter<type> 
-{
-};

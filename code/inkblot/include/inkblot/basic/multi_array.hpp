@@ -58,14 +58,15 @@ namespace ink
                 NewMembers.reserve(OldMembers.size());
 
                 for (const auto &Member : OldMembers) {
-                    const auto MemberType = std::meta::type_of(Member);
-                    const auto RefType = [&MemberType] consteval {
-                        using std::meta::substitute;
+                    const auto RefType = [&Member] consteval {
+                        const auto MemberTypeWithLValueRef = std::meta::substitute(^^std::add_lvalue_reference_t, {std::meta::type_of(Member)});
 
                         if constexpr (std::is_const_v<std::remove_reference_t<self_type>>) {
-                            return substitute(^^std::optional, {substitute(^^std::add_lvalue_reference_t, {substitute(^^std::add_const_t, {MemberType})})});
+                            // Convert T -> optional<const T&>
+                            return std::meta::substitute(^^std::optional, {std::meta::substitute(^^std::add_const_t, {MemberTypeWithLValueRef})});
                         } else {
-                            return substitute(^^std::optional, {substitute(^^std::add_lvalue_reference_t, {MemberType})});
+                            // Convert T -> optional<T&>
+                            return std::meta::substitute(^^std::optional, {MemberTypeWithLValueRef});
                         }
                     }();
 
@@ -111,7 +112,7 @@ namespace ink
 
         template <std::meta::info Member>
             requires detail::member_of<element_type, Member>
-        [[nodiscard]] constexpr auto values(this auto& Self) noexcept
+        [[nodiscard]] constexpr auto values(this auto &Self) noexcept
         {
             static constexpr auto StorageMember = [] consteval {
                 static constexpr auto Cxt = std::meta::access_context::current();

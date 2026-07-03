@@ -13,7 +13,7 @@ struct stdout_sink : ink::logging_sink
 {
     auto push(const ink::logging_record &Record) -> void override
     {
-        std::println("[{}] >> {} - {}({}:{})", Record.Level, Record.Message, Record.SourceLocation.File, Record.SourceLocation.Line, Record.SourceLocation.Column);
+        std::print("[{}] >> {} - {}({}:{})\n", Record.Level, Record.Message, Record.SourceLocation.File, Record.SourceLocation.Line, Record.SourceLocation.Column);
     }
 };
 
