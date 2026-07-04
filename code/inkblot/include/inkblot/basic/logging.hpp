@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <concepts>
 #include <cstdint>
 #include <format>
@@ -22,35 +23,16 @@ namespace ink
         fatal
     };
 
-    struct source_location 
-    {
-        std::string_view File;
-        std::uint32_t Line;
-        std::uint32_t Column;
-        
-        [[nodiscard]] consteval static auto current(std::source_location SourceLocation = std::source_location::current()) noexcept -> source_location
-        {
-            auto const File = [](std::string_view Path) consteval noexcept {
-                if (auto const Position = Path.find_last_of("/\\"); Position != std::string_view::npos) {
-                    return Path.substr(Position + 1zu);
-                }
-
-                return Path;
-            }(SourceLocation.file_name());
-
-            return {
-                .File   = File,
-                .Line   = SourceLocation.line(),
-                .Column = SourceLocation.column()
-            };
-        }
-    };
-
     struct logging_record 
     {
         std::string_view Message;
-        logging_level Level;
-        source_location SourceLocation;
+        logging_level    Level;
+
+        std::string_view SourceFile;
+        std::uint32_t    SourceLine;
+        std::uint32_t    SourceColumn;
+
+        std::chrono::system_clock::time_point Timestamp;
     };
 
     struct logging_sink
@@ -62,6 +44,30 @@ namespace ink
 
     namespace detail
     {
+        struct source_location 
+        {
+            std::string_view File;
+            std::uint32_t Line;
+            std::uint32_t Column;
+            
+            [[nodiscard]] consteval static auto current(std::source_location SourceLocation = std::source_location::current()) noexcept -> source_location
+            {
+                const auto File = [](std::string_view Path) consteval noexcept {
+                    if (const auto Position = Path.find_last_of("/\\"); Position != std::string_view::npos) {
+                        return Path.substr(Position + 1zu);
+                    }
+
+                    return Path;
+                }(SourceLocation.file_name());
+
+                return {
+                    .File   = File,
+                    .Line   = SourceLocation.line(),
+                    .Column = SourceLocation.column()
+                };
+            }
+        };
+
         template <typename ...arg_types>
         struct logging_config 
         {
@@ -81,16 +87,19 @@ namespace ink
 
         auto push_log_record_to_sinks(const logging_record &Record) -> void;
 
-        template <typename... arg_types>
+        template <typename ...arg_types>
         auto log_message(logging_level Level, detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
         {
             auto CharBuffer = std::array<char, 512>{};
             const auto FormatResult = std::format_to_n(CharBuffer.data(), CharBuffer.size(), Config.Format, std::forward<arg_types>(Arguments)...);
 
             const auto Record = logging_record{
-                .Message        = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
-                .Level          = Level,
-                .SourceLocation = Config.SourceLocation
+                .Message      = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
+                .Level        = Level,
+                .SourceFile   = Config.SourceLocation.File,
+                .SourceLine   = Config.SourceLocation.Line,
+                .SourceColumn = Config.SourceLocation.Column,
+                .Timestamp    = std::chrono::system_clock::now()
             };
 
             push_log_record_to_sinks(Record);

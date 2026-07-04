@@ -13,7 +13,15 @@ struct stdout_sink : ink::logging_sink
 {
     auto push(const ink::logging_record &Record) -> void override
     {
-        std::print("[{}] >> {} - {}({}:{})\n", Record.Level, Record.Message, Record.SourceLocation.File, Record.SourceLocation.Line, Record.SourceLocation.Column);
+        std::print(
+            "[{:%Y-%m-%d %H:%M:%S}] [{}] >> {} - {}({}:{})\n", 
+            std::chrono::floor<std::chrono::milliseconds>(Record.Timestamp), 
+            Record.Level, 
+            Record.Message, 
+            Record.SourceFile, 
+            Record.SourceLine, 
+            Record.SourceColumn
+        );
     }
 };
 
@@ -38,7 +46,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int {
 
     for (auto Idx = 0zu; Idx < Points.size(); ++Idx) {
         const auto Point = Points[Idx];
-        ink::log_info(" - Point #{} = ({}, {}, {})", Idx + 1zu, *Point.X, *Point.Y, *Point.Z);
+        ink::log_info("Point #{} = ({}, {}, {})", Idx + 1zu, *Point.X, *Point.Y, *Point.Z);
     }
 
     for (const auto &X : Points.values<^^point::X>()) {
