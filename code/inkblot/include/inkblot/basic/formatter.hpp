@@ -1,55 +1,81 @@
 #pragma once
 
+#include <algorithm>
+#include <concepts>
 #include <format>
 #include <meta>
-#include <string>
+#include <ranges>
 #include <type_traits>
 #include <utility>
 
 namespace ink
 {
-    namespace detail 
+    template <typename out_type, typename type>
+    concept has_format_to_member = requires(out_type Out, const type& Object) {
+        { Object.format_to(Out) } -> std::same_as<out_type>;
+    };
+
+    template <typename out_type, typename type>
+    concept has_format_to_free = requires(out_type Out, const type& Object) {
+        { format_to(Out, Object) } -> std::same_as<out_type>;
+    };
+
+    struct format_to_cpo
     {
-        struct to_string_cpo
+        template <typename out_type, typename type>
+        requires has_format_to_member<out_type, type>
+        constexpr auto operator()(out_type Out, const type &Object) const -> out_type
         {
-            template <typename type>
-                requires std::is_enum_v<type>
-            constexpr auto operator()(const type &Obj) -> std::string
+            return Object.format_to(Out);
+        }
+
+        template <typename out_type, typename type>
+        requires (!has_format_to_member<out_type, type> && has_format_to_free<out_type, type>)
+        constexpr auto operator()(out_type Out, const type &Object) const -> out_type
+        {
+            return format_to(Out, Object);
+        }
+
+        template <typename out_type, typename type>
+        requires std::is_enum_v<type>
+        constexpr auto operator()(out_type Out, const type &Object) const -> out_type
+        {
+            template for (constexpr auto EnumValue : std::define_static_array(std::meta::enumerators_of(^^type)))
             {
-                template for (constexpr auto EnumValue : std::define_static_array(std::meta::enumerators_of(^^type))) {
-                    if (Obj == [:EnumValue:]) {
-                        return std::string{std::meta::identifier_of(EnumValue)};
-                    }
+                if (Object == [:EnumValue:]) {
+                    return std::ranges::copy(std::meta::identifier_of(EnumValue), Out).out;
                 }
-
-                std::unreachable();
             }
+
+            std::unreachable();
+        }
+    };
+
+    constinit inline auto FormatTo = format_to_cpo{};
+
+    template <typename type>
+    concept formattable = 
+        std::is_enum_v<type> || 
+        requires(const type &Object, std::format_context &Context) {
+            { FormatTo(Context.out(), Object) } -> std::same_as<std::format_context::iterator>;
         };
 
-        constinit inline auto ToString = to_string_cpo{};
-
-        template <typename type> 
-        struct formatter 
+    template <typename type>
+    struct formatter
+    {
+        constexpr auto parse(std::format_parse_context &Context)
         {
-            constexpr auto parse(std::format_parse_context &FormatContext) 
-            {
-                return std::ranges::begin(FormatContext);
-            }
+            return Context.begin();
+        }
 
-            constexpr auto format(const type &Object, std::format_context &FormatContext) const 
-            {
-                return std::format_to(FormatContext.out(), "{}", ToString(Object));
-            }
-        };
-
-        template <typename type>
-        concept formattable = requires(type Obj) {
-            { ToString(Obj) } -> std::convertible_to<std::string>;
-        };
-    } // namespace detail
+        auto format(const type &Object, std::format_context &Context) const
+        {
+            return FormatTo(Context.out(), Object);
+        }
+    };
 } // namespace ink
 
-template <ink::detail::formattable type> 
-struct std::formatter<type> : ink::detail::formatter<type> 
+template <ink::formattable type>
+struct std::formatter<type> : ink::formatter<type>
 {
 };

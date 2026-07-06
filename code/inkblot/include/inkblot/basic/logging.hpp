@@ -7,14 +7,13 @@
 #include <chrono>
 #include <concepts>
 #include <cstdint>
-#include <format>
 #include <memory>
 #include <source_location>
 #include <string_view>
 
-namespace ink 
+namespace ink::log
 {
-    enum class logging_level
+    enum class level
     {
         debug,
         info,
@@ -23,10 +22,10 @@ namespace ink
         fatal
     };
 
-    struct logging_record 
+    struct record 
     {
         std::string_view Message;
-        logging_level    Level;
+        level            Level;
 
         std::string_view SourceFile;
         std::uint32_t    SourceLine;
@@ -35,107 +34,106 @@ namespace ink
         std::chrono::system_clock::time_point Timestamp;
     };
 
-    struct logging_sink
+    struct sink
     {
-        virtual ~logging_sink() = default;
-
-        virtual auto push(const logging_record &Record) -> void = 0;
+        using sink_fn = void (*)(const record&);
+        
+        std::string_view Name;
+        sink_fn          Output;
     };
 
-    namespace detail
+    struct source_location 
     {
-        struct source_location 
+        std::string_view File;
+        std::uint32_t    Line;
+        std::uint32_t    Column;
+
+        constexpr source_location(std::source_location SourceLocation)
+            : File{[](std::string_view Path) noexcept {
+                if (const auto Position = Path.find_last_of("/\\"); Position != std::string_view::npos) {
+                    return Path.substr(Position + 1zu);
+                }
+
+                return Path;
+            }(SourceLocation.file_name())}
+            , Line{SourceLocation.line()}
+            , Column{SourceLocation.column()}
         {
-            std::string_view File;
-            std::uint32_t Line;
-            std::uint32_t Column;
-            
-            [[nodiscard]] consteval static auto current(std::source_location SourceLocation = std::source_location::current()) noexcept -> source_location
-            {
-                const auto File = [](std::string_view Path) consteval noexcept {
-                    if (const auto Position = Path.find_last_of("/\\"); Position != std::string_view::npos) {
-                        return Path.substr(Position + 1zu);
-                    }
-
-                    return Path;
-                }(SourceLocation.file_name());
-
-                return {
-                    .File   = File,
-                    .Line   = SourceLocation.line(),
-                    .Column = SourceLocation.column()
-                };
-            }
-        };
-
-        template <typename ...arg_types>
-        struct logging_config 
-        {
-            std::format_string<arg_types...> Format;
-            source_location SourceLocation;
-
-            template <std::size_t Size>
-            consteval logging_config(const char (&InFormat)[Size], source_location InSourceLocation = source_location::current())
-                : Format{InFormat}
-                , SourceLocation{InSourceLocation}
-            {
-            }
-        };
-
-        template <typename ...arg_types>
-        logging_config(std::format_string<arg_types...>) -> logging_config<arg_types...>;
-
-        auto push_log_record_to_sinks(const logging_record &Record) -> void;
-
-        template <typename ...arg_types>
-        auto log_message(logging_level Level, detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
-        {
-            auto CharBuffer = std::array<char, 512>{};
-            const auto FormatResult = std::format_to_n(CharBuffer.data(), CharBuffer.size(), Config.Format, std::forward<arg_types>(Arguments)...);
-
-            const auto Record = logging_record{
-                .Message      = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
-                .Level        = Level,
-                .SourceFile   = Config.SourceLocation.File,
-                .SourceLine   = Config.SourceLocation.Line,
-                .SourceColumn = Config.SourceLocation.Column,
-                .Timestamp    = std::chrono::system_clock::now()
-            };
-
-            push_log_record_to_sinks(Record);
         }
-    } // namespace detail
+        
+        [[nodiscard]] consteval static auto current(std::source_location SourceLocation = std::source_location::current()) noexcept -> source_location
+        {
+            return source_location{SourceLocation};
+        }
+    };
+    
+    template <typename ...arg_types>
+    struct logging_config 
+    {
+        std::format_string<arg_types...> Format;
+        source_location          SourceLocation;
 
-    auto push_logging_sink(std::string Name, std::unique_ptr<logging_sink> Sink) -> void;
-    auto pop_logging_sink(std::string_view Name) -> void;
+        template <std::size_t Size>
+        consteval logging_config(const char (&InFormat)[Size], source_location InSourceLocation = source_location::current())
+            : Format{InFormat}
+            , SourceLocation{InSourceLocation}
+        {
+        }
+    };
+
+    template <typename ...arg_types>
+    logging_config(std::format_string<arg_types...>) -> logging_config<arg_types...>;
+
+    auto push_record_to_sinks(const record &Record) -> void;
+
+    template <typename ...arg_types>
+    auto log_message(level Level, std::format_string<arg_types...> Format, source_location SourceLocation, arg_types &&...Arguments) -> void
+    {
+        auto CharBuffer = std::array<char, 512>{};
+        const auto FormatResult = std::format_to_n(CharBuffer.data(), CharBuffer.size(), Format, std::forward<arg_types>(Arguments)...);
+
+        const auto Record = record{
+            .Message      = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
+            .Level        = Level,
+            .SourceFile   = SourceLocation.File,
+            .SourceLine   = SourceLocation.Line,
+            .SourceColumn = SourceLocation.Column,
+            .Timestamp    = std::chrono::system_clock::now()
+        };
+
+        push_record_to_sinks(Record);
+    }
+
+    auto push_sink(sink Sink) -> void;
+    auto pop_sink(std::string_view Name) -> void;
 
     template <typename... arg_types>
-    auto log_debug(detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
+    inline auto debug(logging_config<std::type_identity_t<arg_types>...> logging_config, arg_types &&...Arguments) -> void
     {
-        detail::log_message(logging_level::debug, Config, std::forward<arg_types>(Arguments)...);
+        log_message(level::debug, logging_config.Format, logging_config.SourceLocation, std::forward<arg_types>(Arguments)...);
     }
 
     template <typename... arg_types>
-    auto log_warn(detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
+    inline auto warn(logging_config<std::type_identity_t<arg_types>...> logging_config, arg_types &&...Arguments) -> void
     {
-        detail::log_message(logging_level::warn, Config, std::forward<arg_types>(Arguments)...);
+        log_message(level::warn, logging_config.Format, logging_config.SourceLocation, std::forward<arg_types>(Arguments)...);
     }
 
     template <typename... arg_types>
-    auto log_info(detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
+    inline auto info(logging_config<std::type_identity_t<arg_types>...> logging_config, arg_types &&...Arguments) -> void
     {
-        detail::log_message(logging_level::info, Config, std::forward<arg_types>(Arguments)...);
+        log_message(level::info, logging_config.Format, logging_config.SourceLocation, std::forward<arg_types>(Arguments)...);
     }
 
     template <typename... arg_types>
-    auto log_error(detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
+    inline auto error(logging_config<std::type_identity_t<arg_types>...> logging_config, arg_types &&...Arguments) -> void
     {
-        detail::log_message(logging_level::error, Config, std::forward<arg_types>(Arguments)...);
+        log_message(level::error, logging_config.Format, logging_config.SourceLocation, std::forward<arg_types>(Arguments)...);
     }
 
     template <typename... arg_types>
-    auto log_fatal(detail::logging_config<std::type_identity_t<arg_types>...> Config, arg_types &&...Arguments) -> void
+    inline auto fatal(logging_config<std::type_identity_t<arg_types>...> logging_config, arg_types &&...Arguments) -> void
     {
-        detail::log_message(logging_level::fatal, Config, std::forward<arg_types>(Arguments)...);
+        log_message(level::fatal, logging_config.Format, logging_config.SourceLocation, std::forward<arg_types>(Arguments)...);
     }
-} // namespace ink
+} // namespace ink::log

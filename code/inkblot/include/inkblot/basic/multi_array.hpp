@@ -14,7 +14,7 @@ namespace ink
     namespace detail 
     {
         template <typename type, std::meta::info Member>
-        concept member_of = [] consteval {
+        concept type_contains_member = [] consteval {
             constexpr auto Cxt = std::meta::access_context::current();
             constexpr auto Members = std::define_static_array(std::meta::nonstatic_data_members_of(^^type, Cxt));
 
@@ -79,52 +79,13 @@ namespace ink
     } // namespace detail
 
     template <detail::multi_array_element element_type, std::size_t Size>
-    struct multi_array : private detail::multi_array_storage<element_type, Size>::impl 
+    struct multi_array : public detail::multi_array_storage<element_type, Size>::impl 
     {
         using storage_type = detail::multi_array_storage<element_type, Size>::impl;
-
-        template <typename ...element_types>
-            requires (sizeof...(element_types) == Size && (std::same_as<std::remove_cvref_t<element_types>, element_type> && ...))
-        [[nodiscard]] static constexpr auto from(element_types &&...Elements) noexcept -> multi_array
-        {
-            static constexpr auto Cxt = std::meta::access_context::current();
-            static constexpr auto Members = std::define_static_array(std::meta::nonstatic_data_members_of(^^element_type, Cxt));
-            static constexpr auto StorageMembers = std::define_static_array(std::meta::nonstatic_data_members_of(^^storage_type, Cxt));
-
-            auto Result = multi_array{};
-            
-            auto ElementsTuple = std::forward_as_tuple(std::forward<element_types>(Elements)...);
-            template for (constexpr auto Index : std::views::iota(0zu, Size)) {
-                auto &&Element = std::get<Index>(ElementsTuple);
-
-                template for (constexpr auto MemberIndex : std::views::iota(0zu, Members.size())) {
-                    Result.[:StorageMembers[MemberIndex]:][Index] = std::forward<decltype(Element)>(Element).[:Members[MemberIndex]:];
-                }
-            }
-
-            return Result;
-        }
 
         [[nodiscard]] constexpr auto size() const noexcept -> std::size_t
         {
             return Size;
-        }
-
-        template <std::meta::info Member>
-            requires detail::member_of<element_type, Member>
-        [[nodiscard]] constexpr auto values(this auto &Self) noexcept
-        {
-            static constexpr auto StorageMember = [] consteval {
-                static constexpr auto Cxt = std::meta::access_context::current();
-                static constexpr auto StorageMembers = std::define_static_array(std::meta::nonstatic_data_members_of(^^storage_type, Cxt));
-
-                // We know we can always dereference here since `Field` is pre-constrained by `detail::member_of<element_type, Field>`
-                return *std::ranges::find_if(StorageMembers, [](const auto& TypeMember) consteval {
-                    return std::meta::identifier_of(TypeMember) == std::meta::identifier_of(Member);
-                });
-            }();
-
-            return std::span{Self.[:StorageMember:]};
         }
 
         [[nodiscard]] constexpr auto operator[](this auto &Self, std::size_t ElementIndex) noexcept

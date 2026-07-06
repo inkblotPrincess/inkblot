@@ -9,32 +9,35 @@ struct point {
     float Z;
 };
 
-struct stdout_sink : ink::logging_sink
+auto format_to(auto Out, const point &Point)
 {
-    auto push(const ink::logging_record &Record) -> void override
-    {
-        std::print(
-            "[{:%Y-%m-%d %H:%M:%S}] [{}] >> {} - {}({}:{})\n", 
-            std::chrono::floor<std::chrono::milliseconds>(Record.Timestamp), 
-            Record.Level, 
-            Record.Message, 
-            Record.SourceFile, 
-            Record.SourceLine, 
-            Record.SourceColumn
-        );
-    }
-};
+    return std::format_to(Out, "({}, {}, {})", Point.X, Point.Y, Point.Z);
+}
+
+auto log_print(const ink::log::record &Record) -> void
+{
+    std::print(
+        "[{:%Y-%m-%d %H:%M:%S}] [{}] >> {} - {}({}:{})\n", 
+        std::chrono::floor<std::chrono::milliseconds>(Record.Timestamp), 
+        Record.Level, 
+        Record.Message, 
+        Record.SourceFile, 
+        Record.SourceLine, 
+        Record.SourceColumn
+    );
+}
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int {
-    ink::push_logging_sink("stdout", std::make_unique<stdout_sink>());
+    ink::log::push_sink({.Name = "stdout", .Output = &log_print});
 
-    auto Points = ink::multi_array<point, 5zu>::from(
-        point{.X = 1.0f, .Y = 1.0f, .Z = 1.0f},
-        point{.X = 2.0f, .Y = 2.0f, .Z = 2.0f},
-        point{.X = 3.0f, .Y = 3.0f, .Z = 3.0f},
-        point{.X = 4.0f, .Y = 4.0f, .Z = 4.0f},
-        point{.X = 5.0f, .Y = 5.0f, .Z = 5.0f}
-    );
+    auto Points = ink::multi_array<point, 5zu>{{
+        .X = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f},
+        .Y = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f},
+        .Z = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f}
+    }};
+
+    const auto MyPoint = point{.X = 1.0f, .Y = 2.0f, .Z = 3.0f};
+    ink::log::info("MyPoint = {}", MyPoint);
 
     for (auto Idx = 0zu; Idx < Points.size(); ++Idx) {
         auto Point = Points[Idx];
@@ -46,14 +49,14 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int {
 
     for (auto Idx = 0zu; Idx < Points.size(); ++Idx) {
         const auto Point = Points[Idx];
-        ink::log_info("Point #{} = ({}, {}, {})", Idx + 1zu, *Point.X, *Point.Y, *Point.Z);
+        ink::log::info("Point #{} = ({}, {}, {})", Idx + 1zu, *Point.X, *Point.Y, *Point.Z);
     }
 
-    for (const auto &X : Points.values<^^point::X>()) {
-        ink::log_info("X = {}", X);
+    for (const auto &X : Points.X) {
+        ink::log::info("X = {}", X);
     }
 
-    ink::log_info("Points[2].X == {}", Points.values<^^point::X>()[2zu]);
+    ink::log::info("Points[2].X == {}", Points.X[2zu]);
 
     return 0;
 }
