@@ -22,24 +22,26 @@ auto run() -> void
             }
         });
 
-    auto [Window, WindowSuccess] = ink::os::window::make({.Width = 1080u, .Height = 720u});
+    const auto [WindowHandle, WindowSuccess] = ink::os::window_make(1080u, 720u);
     if (!WindowSuccess) {
         ink::log::fatal("Failed to create window!");
         return;
     }
 
     auto Running = true;
-    while (Running) {
-        Window.process_events([&](const ink::os::window_event &WindowEvent) noexcept -> bool {
-            return WindowEvent >> ink::match {
+
+    const auto WindowEventCallback = 
+        [&](const ink::os::window_event &WindowEvent) noexcept {
+            WindowEvent >> ink::match {
                 [&]([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
                     ink::log::info("Shutting down...");
                     Running = false;
-
-                    return false;
                 }
             };
-        });
+        };
+
+    while (Running) {
+        ink::os::process_window_events(WindowHandle, WindowEventCallback);
     }
 }
 

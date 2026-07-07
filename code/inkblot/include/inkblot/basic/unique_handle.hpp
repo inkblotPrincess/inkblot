@@ -18,7 +18,9 @@ namespace ink
     class unique_handle
     {
       public:
-        constexpr explicit unique_handle(handle_type Handle = InvalidHandle) noexcept
+        constexpr unique_handle() noexcept = default;
+
+        constexpr explicit unique_handle(handle_type Handle) noexcept
             : m_Handle{Handle}
         {
         }
@@ -51,13 +53,15 @@ namespace ink
         }
 
         constexpr auto release() noexcept -> handle_type
+            post(get() == InvalidHandle)
         {
             return std::exchange(m_Handle, InvalidHandle);
         }
 
-        constexpr auto reset(handle_type NewHandle = InvalidHandle) noexcept -> void
+        constexpr auto reset(const handle_type NewHandle = InvalidHandle) noexcept -> void
+            post(get() == NewHandle)
         {
-            if (auto OldHandle = std::exchange(m_Handle, NewHandle); OldHandle != InvalidHandle) {
+            if (const auto OldHandle = std::exchange(m_Handle, NewHandle); OldHandle != InvalidHandle) {
                 deleter_type{}(OldHandle);
             }
         }
@@ -73,6 +77,6 @@ namespace ink
         }
 
       private:
-        handle_type m_Handle;
+        handle_type m_Handle = InvalidHandle;
     };
 } // namespace ink
