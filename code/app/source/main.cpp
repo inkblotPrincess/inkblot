@@ -31,11 +31,17 @@ auto run() -> void
     auto Running = true;
 
     const auto WindowEventCallback = 
-        [&](const ink::os::window_event &WindowEvent) noexcept {
+        [&Running](const ink::os::window_event &WindowEvent) noexcept {
             WindowEvent >> ink::match {
-                [&]([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
+                [&Running]([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
                     ink::log::info("Shutting down...");
                     Running = false;
+                },
+                [&Running](const ink::os::window_key_event &KeyEvent) noexcept {
+                    if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
+                        ink::log::info("[ESC] Shutting down...");
+                        Running = false;
+                    }
                 }
             };
         };
