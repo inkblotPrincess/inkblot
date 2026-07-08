@@ -47,6 +47,12 @@ namespace ink
             return *this;
         }
 
+        template <typename converted_type>
+        [[nodiscard]] constexpr auto as() const noexcept -> converted_type
+        {
+            return static_cast<converted_type>(m_Handle);
+        }
+
         [[nodiscard]] constexpr auto get() const noexcept -> handle_type
         {
             return m_Handle;

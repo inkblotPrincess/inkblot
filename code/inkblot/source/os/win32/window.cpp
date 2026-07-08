@@ -172,8 +172,8 @@ namespace ink::os
 
     auto native_window_handle_deleter::operator()(const native_window_handle &Handle) const noexcept -> void
     {
-        const auto Hwnd = static_cast<::HWND>(Handle);
-        ::DestroyWindow(Hwnd);
+        const auto WindowHandle = static_cast<::HWND>(Handle);
+        ::DestroyWindow(WindowHandle);
     }
 
     auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::pair<window_handle, bool>
@@ -229,29 +229,39 @@ namespace ink::os
         return MAKE_PAIR((window_handle{Handle}), true);
     }
 
-    auto process_window_events(const window_handle &WindowHandle, const window_callback &Callback) noexcept -> void
+    auto process_window_events(const window_handle &WindowHandle, const window_callback &Callback) noexcept -> bool
     {
-        const auto Handle = static_cast<::HWND>(*WindowHandle);
+        const auto Handle = WindowHandle.as<::HWND>();
 
         auto Message = ::MSG{};
         while (::PeekMessageW(&Message, Handle, 0, 0, PM_REMOVE)) {
             switch (Message.message) {
                 case WM_KEYDOWN:
                 case WM_SYSKEYDOWN: {
-                    if ((Message.lParam & (1u << 30)) == 0) { // 30th bit = is repeat press; we ignore these!
-                        Callback(window_key_event{
-                            .Key   = convert_win32_key_to_our_key(Message.wParam, Message.lParam),
-                            .State = window_key_state::pressed
-                        });
+                    if ((Message.lParam & (1u << 30)) != 0) { // 30th bit = is repeat press; we ignore these!
+                        break;
+                    }
+
+                    const auto KeyEvent = window_key_event{
+                        .Key   = convert_win32_key_to_our_key(Message.wParam, Message.lParam), 
+                        .State = window_key_state::pressed
+                    };
+
+                    if (!Callback(KeyEvent)) {
+                        return false;
                     }
                 } break;
                 
                 case WM_KEYUP:
                 case WM_SYSKEYUP: {
-                    Callback(window_key_event{
-                        .Key   = convert_win32_key_to_our_key(Message.wParam, Message.lParam),
+                    const auto KeyEvent = window_key_event{
+                        .Key   = convert_win32_key_to_our_key(Message.wParam, Message.lParam), 
                         .State = window_key_state::released
-                    });
+                    };
+
+                    if (!Callback(KeyEvent)) {
+                        return false;
+                    }
                 } break;
 
                 default:
@@ -266,7 +276,11 @@ namespace ink::os
         // PeekMessageW looks at.
         if (::GetPropW(Handle, CloseRequestedProp) != nullptr) {
             ::RemovePropW(Handle, CloseRequestedProp);
-            Callback(window_quit_event{});
+            if (!Callback(window_quit_event{})) {
+                return false;
+            }
         }
+
+        return true;
     }
 } // namespace ink::os

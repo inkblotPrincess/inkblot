@@ -4,6 +4,25 @@
 
 #include <print>
 
+auto handle_window_event(const ink::os::window_event &WindowEvent) noexcept -> bool
+{
+    return WindowEvent >> ink::match {
+        []([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
+            ink::log::info("Shutting down...");
+            return false;
+        },
+
+        [](const ink::os::window_key_event &KeyEvent) noexcept {
+            if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
+                ink::log::info("[ESC] Shutting down...");
+                return false;
+            }
+
+            return true;
+        }
+    };
+}
+
 auto run() -> void
 {
     ink::log::push_sink({
@@ -28,26 +47,9 @@ auto run() -> void
         return;
     }
 
-    auto Running = true;
-
-    const auto WindowEventCallback = 
-        [&Running](const ink::os::window_event &WindowEvent) noexcept {
-            WindowEvent >> ink::match {
-                [&Running]([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
-                    ink::log::info("Shutting down...");
-                    Running = false;
-                },
-                [&Running](const ink::os::window_key_event &KeyEvent) noexcept {
-                    if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
-                        ink::log::info("[ESC] Shutting down...");
-                        Running = false;
-                    }
-                }
-            };
-        };
-
-    while (Running) {
-        ink::os::process_window_events(WindowHandle, WindowEventCallback);
+    auto KeepRunning = true;
+    while (KeepRunning) {
+        KeepRunning = ink::os::process_window_events(WindowHandle, handle_window_event);
     }
 }
 
