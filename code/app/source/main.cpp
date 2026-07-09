@@ -1,5 +1,6 @@
 #include <inkblot/basic/logging.hpp>
 #include <inkblot/basic/match.hpp>
+#include <inkblot/gfx/renderer.hpp>
 #include <inkblot/os/window.hpp>
 
 #include <print>
@@ -44,6 +45,12 @@ auto run() -> void
     const auto [WindowHandle, WindowSuccess] = ink::os::window_make(1080u, 720u);
     if (!WindowSuccess) {
         ink::log::fatal("Failed to create window!");
+        return;
+    }
+
+    const auto [Renderer, RendererSuccess] = ink::gfx::renderer::make(ink::gfx::api::vulkan, WindowHandle);
+    if (!RendererSuccess) {
+        ink::log::fatal("Failed to create renderer!");
         return;
     }
 

@@ -13,6 +13,10 @@
 
 // TODO: should we have macros for tuple, any, and variant too? - 7/July/26
 
+#pragma once
+
+#include <utility>
+
 #define USE_WEIRD_RVO_TRICK 1
 
 #if defined(USE_WEIRD_RVO_TRICK)
