@@ -1,9 +1,7 @@
 #include <inkblot/basic/logging.hpp>
-#include <inkblot/basic/rvo.hpp>
 #include <inkblot/os/window.hpp>
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "win32.hpp"
 
 namespace ink::os
 {
@@ -170,13 +168,14 @@ namespace ink::os
         }
     }
 
-    auto native_window_handle_deleter::operator()(const native_window_handle &Handle) const noexcept -> void
+    auto window::handle_deleter::operator()(const window::handle_type &Handle) const noexcept -> void
     {
         const auto WindowHandle = static_cast<::HWND>(Handle);
         ::DestroyWindow(WindowHandle);
     }
 
-    auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::optional<window_handle>
+    window::window(std::uint32_t Width, std::uint32_t Height)
+        : m_Handle{}
     {
         if (!ClassRegistered) {
             const auto WindowClass = ::WNDCLASSEXW{
@@ -189,21 +188,14 @@ namespace ink::os
                 .lpszClassName = L"inkblot_wndclass"
             };
 
-            if (::RegisterClassExW(&WindowClass) == 0) {
-                log::error("In window_make, could not register Win32 class! ({})", ::GetLastError());
-                return std::nullopt;
-            }
-
+            win32::ensure_os(::RegisterClassExW(&WindowClass) != 0, "Failed to register Win32 class");
             ClassRegistered = true;
         }
 
         auto ClientRect = ::RECT{.left = 0, .top = 0, .right = static_cast<int>(Width), .bottom = static_cast<int>(Height)};
         constexpr auto WindowStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
-        if (!::AdjustWindowRect(&ClientRect, WindowStyle, FALSE) != FALSE) {
-            log::error("In window_make, could not adjust Win32 rect! ({})", ::GetLastError());
-            return std::nullopt;
-        }
+        win32::ensure_os(::AdjustWindowRect(&ClientRect, WindowStyle, FALSE), "Failed to adjust Win32 client rect");
 
         const auto WindowWidth  = ClientRect.right - ClientRect.left;
         const auto WindowHeight = ClientRect.bottom - ClientRect.top;
@@ -221,17 +213,18 @@ namespace ink::os
             nullptr, 
             ::GetModuleHandleW(nullptr), 
             nullptr);
-        if (Handle == NULL) {
-            log::error("In window_make, could not construct Win32 window! ({})", ::GetLastError());
-            return std::nullopt;
-        }
-
-        return MAKE_OPTIONAL(window_handle{Handle});
+        win32::ensure_os(Handle != NULL, "Failed to construct Win32 window");
+        m_Handle.reset(Handle);
     }
 
-    auto process_window_events(const window_handle &WindowHandle, const window_callback &Callback) noexcept -> bool
+    auto window::native_handle() const noexcept -> window::handle_type
     {
-        const auto Handle = WindowHandle.as<::HWND>();
+        return *m_Handle;
+    }
+
+    auto window::process_events(const window::callback_type &Callback) const noexcept -> bool
+    {
+        const auto Handle = m_Handle.as<::HWND>();
 
         auto Message = ::MSG{};
         while (::PeekMessageW(&Message, Handle, 0, 0, PM_REMOVE)) {

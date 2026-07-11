@@ -1,6 +1,5 @@
 #include <inkblot/basic/logging.hpp>
 #include <inkblot/basic/match.hpp>
-#include <inkblot/os/thread.hpp>
 #include <inkblot/gfx/renderer.hpp>
 #include <inkblot/os/thread.hpp>
 #include <inkblot/os/window.hpp>
@@ -46,23 +45,14 @@ auto run() -> void
             }
         });
 
-    const auto WindowHandle = ink::os::window_make(1080u, 720u);
-    if (!WindowHandle) {
-        ink::log::fatal("Failed to create window!");
-        return;
-    }
+    const auto Window   = ink::os::window{1080u, 720u};
+    const auto Renderer = ink::gfx::renderer{ink::gfx::api::vulkan, Window.native_handle()};
 
-    const auto Renderer = ink::gfx::renderer::make(ink::gfx::api::vulkan, *WindowHandle);
-    if (!Renderer) {
-        ink::log::fatal("Failed to create renderer!");
-        return;
-    }
-
-    auto Thread = ink::os::thread::make([]([[maybe_unused]] std::stop_token StopToken, int a) noexcept -> void { ink::log::debug("int a = {}", a); }, 30);
+    auto Thread = ink::os::thread{[]([[maybe_unused]] std::stop_token StopToken, int a) noexcept -> void { ink::log::debug("int a = {}", a); }, 30};
 
     auto KeepRunning = true;
     while (KeepRunning) {
-        KeepRunning = ink::os::process_window_events(*WindowHandle, handle_window_event);
+        KeepRunning = Window.process_events(handle_window_event);
     }
 }
 

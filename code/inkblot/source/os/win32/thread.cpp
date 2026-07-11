@@ -1,8 +1,6 @@
 #include <inkblot/os/thread.hpp>
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <process.h>
+#include "win32.hpp"
 
 #include <memory>
 
@@ -13,14 +11,6 @@ namespace ink::os
         ::CloseHandle(Handle);
     }
 
-    thread::thread(thread_id Id, std::stop_source StopSource, thread::handle_type Handle, std::shared_ptr<exception_state> ExceptionState) noexcept
-        : m_ThreadId{Id}
-        , m_StopSource{std::move(StopSource)}
-        , m_ExceptionState{std::move(ExceptionState)}
-        , m_Handle{Handle}
-    {
-    }
-
     thread::~thread() noexcept
     {
         if (m_Handle) {
@@ -29,7 +19,7 @@ namespace ink::os
         }
     }
 
-    auto thread::create_thread(thread::data_type Data, thread::proc_type Proc) noexcept -> std::pair<thread::handle_type, thread_id>
+    auto thread::create_thread(thread_id &ThreadId, thread::data_type Data, thread::proc_type Proc) noexcept -> thread::handle_type
     {
         struct startup_data
         {
@@ -45,16 +35,11 @@ namespace ink::os
             return 0u;
         };
 
-        auto ThreadId = thread_id{};
         const auto Handle = reinterpret_cast<::HANDLE>(::_beginthreadex(nullptr, 0u, NativeProc, StartupPtr.get(), 0u, &ThreadId));
-        if (Handle == nullptr) {
-            log::error("In thread::create_thread, failed to create thread! ({})", ::GetLastError());
-            return {nullptr, 0u};
-        }
-
+        win32::ensure_os(Handle != nullptr, "Failed to create Win32 thread");
 
         StartupPtr.release();
-        return {Handle, ThreadId};
+        return Handle;
     }
 
     auto thread::exception() const noexcept -> std::exception_ptr

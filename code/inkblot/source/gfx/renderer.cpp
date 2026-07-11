@@ -1,5 +1,5 @@
+#include <inkblot/basic/error.hpp>
 #include <inkblot/basic/logging.hpp>
-#include <inkblot/basic/rvo.hpp>
 #include <inkblot/gfx/renderer.hpp>
 
 namespace ink::gfx
@@ -7,9 +7,8 @@ namespace ink::gfx
     // @TEMP
     struct dummy_backend : irenderer_backend
     {
-        static auto make([[maybe_unused]] const os::window_handle &WindowHandle) -> std::optional<std::unique_ptr<dummy_backend>>
+        dummy_backend([[maybe_unused]] const os::window::handle_type &WindowHandle) 
         {
-            return MAKE_OPTIONAL(std::make_unique<dummy_backend>());
         }
 
         auto submit_frame([[maybe_unused]] const frame_context &Context) -> void override 
@@ -17,28 +16,20 @@ namespace ink::gfx
         }
     };
 
-    renderer::renderer(std::unique_ptr<irenderer_backend> Backend) noexcept
-        : m_Backend{std::move(Backend)}
+    auto create_renderer_backend(api API, const os::window::handle_type &WindowHandle) -> std::unique_ptr<irenderer_backend>
     {
-    }
-
-    auto renderer::make(api API, const os::window_handle &WindowHandle) noexcept -> std::optional<renderer>
-    {
-        auto Backend = [API, &WindowHandle] noexcept {
-            switch (API) {
-                case api::vulkan: return dummy_backend::make(WindowHandle); // @TEMP
-                case api::dx12:   contract_assert(false); // @TODO
-            }
-
-            std::unreachable();
-        }();
-
-        if (!Backend) {
-            log::error("Failed to initialise renderer backend!");
-            return std::nullopt;
+        switch (API) {
+            case api::vulkan: return std::make_unique<dummy_backend>(WindowHandle);
+            case api::dx12:   throw exception{"dx12 unimplemented"};
         }
 
-        return MAKE_OPTIONAL(renderer{std::move(*Backend)});
+        std::unreachable();
+    }
+
+    renderer::renderer(api API, const os::window::handle_type &WindowHandle)
+        : m_FramesInFlight{}
+        , m_Backend{create_renderer_backend(API, WindowHandle)}
+    {
     }
 
     auto renderer::get_frame_context() -> frame_context&

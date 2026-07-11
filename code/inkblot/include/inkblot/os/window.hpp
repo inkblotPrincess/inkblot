@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <format>
-#include <optional>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -56,21 +55,37 @@ namespace ink::os
 
     using window_event = std::variant<window_key_event, window_quit_event>;
 
-    using native_window_handle = void*;
-
-    struct native_window_handle_deleter
+    class window
     {
-        auto operator()(const native_window_handle &Handle) const noexcept -> void;
+      public:
+        using callback_type = bool(*)(const window_event &) noexcept;
+        using handle_type   = void*;
+
+        window() = delete;
+        explicit window(std::uint32_t Width, std::uint32_t Height);
+
+        ~window() = default;
+
+        window(const window &) = delete;
+        auto operator=(const window &) -> window& = delete;
+
+        window(window &&) noexcept = default;
+        auto operator=(window &&) noexcept -> window& = default;
+
+        [[nodiscard]] auto native_handle() const noexcept -> window::handle_type;
+
+        [[nodiscard]] auto process_events(const window::callback_type &Callback) const noexcept -> bool
+            pre(native_handle() != nullptr)
+            pre(Callback != nullptr);
+
+      private:
+        struct handle_deleter
+        {
+            auto operator()(const window::handle_type &Handle) const noexcept -> void;
+        };
+        
+        unique_handle<window::handle_type, window::handle_deleter> m_Handle;
     };
-
-    using window_handle   = unique_handle<native_window_handle, native_window_handle_deleter>;
-    using window_callback = bool(*)(const window_event &) noexcept;
-
-    [[nodiscard]] auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::optional<window_handle>;
-
-    auto process_window_events(const window_handle &WindowHandle, const window_callback &Callback) noexcept -> bool
-        pre(*WindowHandle != nullptr)
-        pre(Callback != nullptr);
 
     auto format_to(auto Out, const window_key_event &KeyEvent)
     {

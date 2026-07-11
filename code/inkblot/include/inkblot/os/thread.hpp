@@ -1,7 +1,6 @@
 #pragma once
 
 #include <inkblot/basic/logging.hpp>
-#include <inkblot/basic/rvo.hpp>
 #include <inkblot/basic/unique_handle.hpp>
 #include <inkblot/os/thread_id.hpp>
 
@@ -9,7 +8,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <stop_token>
 #include <tuple>
 #include <type_traits>
@@ -23,6 +21,23 @@ namespace ink::os
         using handle_type = void*;
 
         thread() = delete;
+
+        template <typename func_type, typename... arg_types>
+        requires std::invocable<std::decay_t<func_type>&&, std::stop_token, std::decay_t<arg_types>&&...>
+        explicit thread(func_type &&Func, arg_types &&...Arguments)
+            : m_ThreadId{}
+            , m_StopSource{}
+            , m_ExceptionState{std::make_shared<thread::exception_state>()}
+            , m_Handle{}
+        {
+            using invocation_type = std::tuple<std::decay_t<func_type>, std::shared_ptr<thread::exception_state>, std::stop_token, std::decay_t<arg_types>...>;
+            auto Data = std::make_unique<invocation_type>(std::forward<func_type>(Func), m_ExceptionState, m_StopSource.get_token(), std::forward<arg_types>(Arguments)...);
+
+            const auto Handle = create_thread(m_ThreadId, Data.get(), trampoline<invocation_type>);
+            m_Handle.reset(Handle);
+
+            Data.release();
+        }
         
         ~thread() noexcept;
 
@@ -31,27 +46,6 @@ namespace ink::os
 
         thread(thread &&) noexcept = default;
         auto operator=(thread &&) noexcept -> thread& = default;
-
-        template <typename func_type, typename... arg_types>
-        requires std::invocable<std::decay_t<func_type>&&, std::stop_token, std::decay_t<arg_types>&&...>
-        [[nodiscard]] static auto make(func_type &&Func, arg_types &&...Arguments) -> std::optional<thread>
-        {
-            auto StopSource     = std::stop_source{};
-            auto ExceptionState = std::make_shared<thread::exception_state>();
-
-            using invocation_type = std::tuple<std::decay_t<func_type>, std::shared_ptr<thread::exception_state>, std::stop_token, std::decay_t<arg_types>...>;
-            auto Data = std::make_unique<invocation_type>(std::forward<func_type>(Func), ExceptionState, StopSource.get_token(), std::forward<arg_types>(Arguments)...);
-
-            const auto [Handle, ThreadId] = create_thread(Data.get(), trampoline<invocation_type>);
-            if (Handle == nullptr) {
-                log::error("In thread::make, failed to create native thread!");
-                return std::nullopt;
-            }
-
-            Data.release();
-
-            return MAKE_OPTIONAL(thread{ThreadId, std::move(StopSource), Handle, std::move(ExceptionState)});
-        }
 
         auto exception() const noexcept -> std::exception_ptr
             pre(native_handle() != nullptr);
@@ -80,11 +74,7 @@ namespace ink::os
             auto operator()(const thread::handle_type &Handle) const noexcept -> void;
         };
 
-        explicit thread(thread_id Id, std::stop_source StopSource, thread::handle_type Handle, std::shared_ptr<exception_state> ExceptionState) noexcept
-            pre(Handle != nullptr)
-            pre(ExceptionState != nullptr);
-
-        static auto create_thread(thread::data_type Data, thread::proc_type Proc) noexcept -> std::pair<thread::handle_type, thread_id>
+        static auto create_thread(thread_id &ThreadId, thread::data_type Data, thread::proc_type Proc) noexcept -> thread::handle_type
             pre(Data != nullptr)
             pre(Proc != nullptr);
 
