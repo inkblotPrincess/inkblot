@@ -7,10 +7,9 @@ namespace ink::gfx
     // @TEMP
     struct dummy_backend : irenderer_backend
     {
-        static auto make([[maybe_unused]] const os::window_handle &WindowHandle) -> std::pair<std::unique_ptr<dummy_backend>, bool>
-            post(R: (R.first == nullptr && !R.second) || (R.first != nullptr && R.second))
+        static auto make([[maybe_unused]] const os::window_handle &WindowHandle) -> std::optional<std::unique_ptr<dummy_backend>>
         {
-            return MAKE_PAIR(std::make_unique<dummy_backend>(), true);
+            return MAKE_OPTIONAL(std::make_unique<dummy_backend>());
         }
 
         auto submit_frame([[maybe_unused]] const frame_context &Context) -> void override 
@@ -23,9 +22,9 @@ namespace ink::gfx
     {
     }
 
-    auto renderer::make(api API, const os::window_handle &WindowHandle) noexcept -> std::pair<renderer, bool>
+    auto renderer::make(api API, const os::window_handle &WindowHandle) noexcept -> std::optional<renderer>
     {
-        auto [Backend, BackendSuccess] = [API, &WindowHandle] noexcept {
+        auto Backend = [API, &WindowHandle] noexcept {
             switch (API) {
                 case api::vulkan: return dummy_backend::make(WindowHandle); // @TEMP
                 case api::dx12:   contract_assert(false); // @TODO
@@ -34,12 +33,12 @@ namespace ink::gfx
             std::unreachable();
         }();
 
-        if (!BackendSuccess) {
+        if (!Backend) {
             log::error("Failed to initialise renderer backend!");
-            return MAKE_PAIR(renderer{nullptr}, false);
+            return std::nullopt;
         }
 
-        return MAKE_PAIR(renderer{std::move(Backend)}, true);
+        return MAKE_OPTIONAL(renderer{std::move(*Backend)});
     }
 
     auto renderer::get_frame_context() -> frame_context&

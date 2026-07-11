@@ -6,7 +6,7 @@
 #include <atomic>
 #include <concepts>
 #include <memory>
-#include <utility>
+#include <optional>
 
 namespace ink::gfx
 {
@@ -48,8 +48,7 @@ namespace ink::gfx
         renderer(renderer &&) noexcept = default;
         auto operator=(renderer &&) noexcept -> renderer& = default;
 
-        [[nodiscard]] static auto make(api API, const os::window_handle &WindowHandle) noexcept -> std::pair<renderer, bool>
-            post(R: (R.first.m_Backend == nullptr && !R.second) || (R.first.m_Backend != nullptr && R.second));
+        [[nodiscard]] static auto make(api API, const os::window_handle &WindowHandle) noexcept -> std::optional<renderer>;
 
         template <typename func_type>
         requires std::is_invocable_r_v<void, func_type, frame_context&>

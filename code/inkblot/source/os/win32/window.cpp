@@ -176,7 +176,7 @@ namespace ink::os
         ::DestroyWindow(WindowHandle);
     }
 
-    auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::pair<window_handle, bool>
+    auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::optional<window_handle>
     {
         if (!ClassRegistered) {
             const auto WindowClass = ::WNDCLASSEXW{
@@ -191,7 +191,7 @@ namespace ink::os
 
             if (::RegisterClassExW(&WindowClass) == 0) {
                 log::error("In window_make, could not register Win32 class! ({})", ::GetLastError());
-                return MAKE_PAIR(window_handle{}, false);
+                return std::nullopt;
             }
 
             ClassRegistered = true;
@@ -202,7 +202,7 @@ namespace ink::os
 
         if (!::AdjustWindowRect(&ClientRect, WindowStyle, FALSE) != FALSE) {
             log::error("In window_make, could not adjust Win32 rect! ({})", ::GetLastError());
-            return MAKE_PAIR(window_handle{}, false);
+            return std::nullopt;
         }
 
         const auto WindowWidth  = ClientRect.right - ClientRect.left;
@@ -223,10 +223,10 @@ namespace ink::os
             nullptr);
         if (Handle == NULL) {
             log::error("In window_make, could not construct Win32 window! ({})", ::GetLastError());
-            return MAKE_PAIR(window_handle{}, false);
+            return std::nullopt;
         }
 
-        return MAKE_PAIR((window_handle{Handle}), true);
+        return MAKE_OPTIONAL(window_handle{Handle});
     }
 
     auto process_window_events(const window_handle &WindowHandle, const window_callback &Callback) noexcept -> bool

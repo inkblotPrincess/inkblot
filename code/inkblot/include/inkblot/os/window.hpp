@@ -4,8 +4,8 @@
 
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <type_traits>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -66,8 +66,7 @@ namespace ink::os
     using window_handle   = unique_handle<native_window_handle, native_window_handle_deleter>;
     using window_callback = bool(*)(const window_event &) noexcept;
 
-    [[nodiscard]] auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::pair<window_handle, bool>
-        post(R: (*R.first == nullptr && !R.second) || (*R.first != nullptr && R.second));
+    [[nodiscard]] auto window_make(std::uint32_t Width, std::uint32_t Height) noexcept -> std::optional<window_handle>;
 
     auto process_window_events(const window_handle &WindowHandle, const window_callback &Callback) noexcept -> bool
         pre(*WindowHandle != nullptr)
