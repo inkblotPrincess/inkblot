@@ -37,7 +37,7 @@ namespace ink
         }
 
         template <typename out_type, typename type>
-        requires std::is_enum_v<type>
+        requires (std::is_enum_v<type> && !has_format_to_free<out_type, type>)
         constexpr auto operator()(out_type Out, const type &Object) const -> out_type
         {
             template for (constexpr auto EnumValue : std::define_static_array(std::meta::enumerators_of(^^type)))

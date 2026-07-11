@@ -3,8 +3,8 @@
 #include <inkblot/basic/logging.hpp>
 #include <inkblot/basic/rvo.hpp>
 #include <inkblot/basic/unique_handle.hpp>
+#include <inkblot/os/thread_id.hpp>
 
-#include <cstdint>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -21,7 +21,6 @@ namespace ink::os
     {
       public:
         using handle_type = void*;
-        using id_type     = std::uint32_t;
 
         thread() = delete;
         
@@ -32,8 +31,6 @@ namespace ink::os
 
         thread(thread &&) noexcept = default;
         auto operator=(thread &&) noexcept -> thread& = default;
-
-        [[nodiscard]] static auto current_thread_id() noexcept -> thread::id_type;
 
         template <typename func_type, typename... arg_types>
         requires std::invocable<std::decay_t<func_type>&&, std::stop_token, std::decay_t<arg_types>&&...>
@@ -59,7 +56,7 @@ namespace ink::os
         auto exception() const noexcept -> std::exception_ptr
             pre(native_handle() != nullptr);
 
-        auto id() const noexcept -> thread::id_type;
+        auto id() const noexcept -> thread_id;
 
         auto join() const noexcept -> void
             pre(native_handle() != nullptr);
@@ -83,11 +80,11 @@ namespace ink::os
             auto operator()(const thread::handle_type &Handle) const noexcept -> void;
         };
 
-        explicit thread(thread::id_type Id, std::stop_source StopSource, thread::handle_type Handle, std::shared_ptr<exception_state> ExceptionState) noexcept
+        explicit thread(thread_id Id, std::stop_source StopSource, thread::handle_type Handle, std::shared_ptr<exception_state> ExceptionState) noexcept
             pre(Handle != nullptr)
             pre(ExceptionState != nullptr);
 
-        static auto create_thread(thread::data_type Data, thread::proc_type Proc) noexcept -> std::pair<thread::handle_type, thread::id_type>
+        static auto create_thread(thread::data_type Data, thread::proc_type Proc) noexcept -> std::pair<thread::handle_type, thread_id>
             pre(Data != nullptr)
             pre(Proc != nullptr);
 
@@ -95,6 +92,7 @@ namespace ink::os
         static auto trampoline(void *RawData) noexcept -> void
         {
             const auto ThreadId = current_thread_id();
+            log::register_logging_thread_name(std::format("ink#{}", ThreadId), ThreadId);
             log::info("Starting thread #{}", ThreadId);
 
             auto Data = std::unique_ptr<invocation_type>(static_cast<invocation_type *>(RawData));
@@ -115,11 +113,12 @@ namespace ink::os
             );
 
             log::info("Ending thread #{}", ThreadId);
+            log::unregister_logging_thread_name(ThreadId);
         }
 
-        thread::id_type                                            m_ThreadId;
-        std::stop_source                                           m_StopSource;
-        std::shared_ptr<exception_state>                           m_ExceptionState;
-        unique_handle<thread::handle_type, thread::handle_deleter> m_Handle;
+        thread_id                                  m_ThreadId;
+        std::stop_source                           m_StopSource;
+        std::shared_ptr<exception_state>           m_ExceptionState;
+        unique_handle<handle_type, handle_deleter> m_Handle;
     };
 } // namespace ink::os

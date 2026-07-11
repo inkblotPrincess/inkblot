@@ -1,6 +1,7 @@
 #pragma once
 
 #include <inkblot/basic/formatter.hpp>
+#include <inkblot/os/thread_id.hpp>
 
 #include <algorithm>
 #include <array>
@@ -10,6 +11,7 @@
 #include <memory>
 #include <source_location>
 #include <string_view>
+#include <utility>
 
 namespace ink::log
 {
@@ -22,8 +24,23 @@ namespace ink::log
         fatal
     };
 
+    auto format_to(auto Out, const level &Level)
+    {
+        switch (Level) {
+            case level::debug: return std::format_to(Out, "D");
+            case level::info:  return std::format_to(Out, "I");
+            case level::warn:  return std::format_to(Out, "W");
+            case level::error: return std::format_to(Out, "E");
+            case level::fatal: return std::format_to(Out, "F");
+        }
+
+        std::unreachable();
+    }
+
     struct record 
     {
+        std::string_view ThreadName;
+
         std::string_view Message;
         level            Level;
 
@@ -67,7 +84,7 @@ namespace ink::log
         }
     };
     
-    template <typename ...arg_types>
+    template <typename...arg_types>
     struct logging_config 
     {
         std::format_string<arg_types...> Format;
@@ -81,18 +98,22 @@ namespace ink::log
         }
     };
 
-    template <typename ...arg_types>
+    template <typename...arg_types>
     logging_config(std::format_string<arg_types...>) -> logging_config<arg_types...>;
 
-    auto push_record_to_sinks(const record &Record) -> void;
+    auto push_record_to_sinks(record &Record) -> void;
 
-    template <typename ...arg_types>
+    auto register_logging_thread_name(std::string Name, os::thread_id ThreadId = os::current_thread_id()) noexcept -> void;
+    auto unregister_logging_thread_name(os::thread_id ThreadId = os::current_thread_id()) noexcept -> void;
+
+    template <typename...arg_types>
     auto log_message(level Level, std::format_string<arg_types...> Format, source_location SourceLocation, arg_types &&...Arguments) -> void
     {
         auto CharBuffer = std::array<char, 512>{};
         const auto FormatResult = std::format_to_n(CharBuffer.data(), CharBuffer.size(), Format, std::forward<arg_types>(Arguments)...);
 
-        const auto Record = record{
+        auto Record = record{
+            .ThreadName   = std::string_view{},
             .Message      = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
             .Level        = Level,
             .SourceFile   = SourceLocation.File,

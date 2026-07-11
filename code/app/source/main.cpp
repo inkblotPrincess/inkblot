@@ -28,14 +28,16 @@ auto handle_window_event(const ink::os::window_event &WindowEvent) noexcept -> b
 
 auto run() -> void
 {
+    ink::log::register_logging_thread_name("main");
     ink::log::push_sink({
         .Name = "stdout", 
         .Output = 
             [](const ink::log::record &Record) {
                 std::print(
-                    "[{:%Y-%m-%d %H:%M:%S}] [{}] >> {} - {}({}:{})\n", 
+                    "[{:%Y-%m-%d %H:%M:%S}] [{}] {} >> {} - {}({}:{})\n", 
                     std::chrono::floor<std::chrono::milliseconds>(Record.Timestamp), 
                     Record.Level, 
+                    Record.ThreadName,
                     Record.Message, 
                     Record.SourceFile, 
                     Record.SourceLine, 

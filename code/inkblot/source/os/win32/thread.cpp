@@ -13,7 +13,7 @@ namespace ink::os
         ::CloseHandle(Handle);
     }
 
-    thread::thread(thread::id_type Id, std::stop_source StopSource, thread::handle_type Handle, std::shared_ptr<exception_state> ExceptionState) noexcept
+    thread::thread(thread_id Id, std::stop_source StopSource, thread::handle_type Handle, std::shared_ptr<exception_state> ExceptionState) noexcept
         : m_ThreadId{Id}
         , m_StopSource{std::move(StopSource)}
         , m_ExceptionState{std::move(ExceptionState)}
@@ -29,7 +29,7 @@ namespace ink::os
         }
     }
 
-    auto thread::create_thread(thread::data_type Data, thread::proc_type Proc) noexcept -> std::pair<thread::handle_type, thread::id_type>
+    auto thread::create_thread(thread::data_type Data, thread::proc_type Proc) noexcept -> std::pair<thread::handle_type, thread_id>
     {
         struct startup_data
         {
@@ -45,7 +45,7 @@ namespace ink::os
             return 0u;
         };
 
-        auto ThreadId = thread::id_type{};
+        auto ThreadId = thread_id{};
         const auto Handle = reinterpret_cast<::HANDLE>(::_beginthreadex(nullptr, 0u, NativeProc, StartupPtr.get(), 0u, &ThreadId));
         if (Handle == nullptr) {
             log::error("In thread::create_thread, failed to create thread! ({})", ::GetLastError());
@@ -57,18 +57,13 @@ namespace ink::os
         return {Handle, ThreadId};
     }
 
-    auto thread::current_thread_id() noexcept -> thread::id_type
-    {
-        return ::GetCurrentThreadId();
-    }
-
     auto thread::exception() const noexcept -> std::exception_ptr
     {
         auto Lock = std::scoped_lock{m_ExceptionState->Mutex};
         return m_ExceptionState->Exception;
     }
 
-    auto thread::id() const noexcept -> thread::id_type
+    auto thread::id() const noexcept -> thread_id
     {
         return m_ThreadId;
     }

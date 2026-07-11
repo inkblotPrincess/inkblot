@@ -2,19 +2,46 @@
 
 #include <mutex>
 #include <vector>
+#include <unordered_map>
 
 namespace ink::log
 {
     inline std::mutex SinksMutex;
     inline std::vector<sink> Sinks;
 
-    auto push_record_to_sinks(const record &Record) -> void
+    inline std::mutex ThreadNamesMutex;
+    inline std::unordered_map<os::thread_id, std::string> ThreadNames;
+
+    auto push_record_to_sinks(record &Record) -> void
     {
+        {
+            auto Lock = std::scoped_lock{ThreadNamesMutex};
+            if (auto It = ThreadNames.find(os::current_thread_id()); It != ThreadNames.end()) {
+                Record.ThreadName = It->second;
+            }
+        }
+
         auto Lock = std::scoped_lock{SinksMutex};
         
         for (auto &Sink : Sinks) {
             Sink.Output(Record);
         }
+    }
+
+    auto register_logging_thread_name(std::string Name, os::thread_id ThreadId) noexcept -> void
+    {
+        auto Lock = std::scoped_lock{ThreadNamesMutex};
+
+        const auto [_, Inserted] = ThreadNames.try_emplace(ThreadId, std::move(Name));
+        contract_assert(Inserted);
+    }
+
+    auto unregister_logging_thread_name(os::thread_id ThreadId) noexcept -> void
+    {
+        auto Lock = std::scoped_lock{ThreadNamesMutex};
+
+        const auto Erased = ThreadNames.erase(ThreadId);
+        contract_assert(Erased == 1);
     }
 
     auto push_sink(sink Sink) -> void
