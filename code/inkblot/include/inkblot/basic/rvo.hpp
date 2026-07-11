@@ -20,10 +20,10 @@
 #define USE_WEIRD_RVO_TRICK 1
 
 #if defined(USE_WEIRD_RVO_TRICK)
-    #define MAKE_PAIR(F, S)     {::ink::with_result_of([&] { return F; }), ::ink::with_result_of([&] { return S; })}
-    #define MAKE_OPTIONAL(O)    {::ink::with_result_of([&] { return O; })}
-    #define MAKE_EXPECTED(E)    {::ink::with_result_of([&] { return E; })}
-    #define MAKE_UNEXPECTED(U)  std::unexpected{::ink::with_result_of([&] { return U; })}
+    #define MAKE_PAIR(F, S)      {::ink::with_result_of([&] { return F; }), ::ink::with_result_of([&] { return S; })}
+    #define MAKE_OPTIONAL(...)   {::ink::with_result_of([&] { return __VA_ARGS__; })}
+    #define MAKE_EXPECTED(...)   {::ink::with_result_of([&] { return __VA_ARGS__; })}
+    #define MAKE_UNEXPECTED(...) std::unexpected{::ink::with_result_of([&] { return __VA_ARGS__; })}
 #else
     #define MAKE_PAIR(F, S)     A, B
     #define MAKE_OPTIONAL(O)    O

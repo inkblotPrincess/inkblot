@@ -82,6 +82,11 @@ namespace ink
             return m_Handle;
         }
 
+        [[nodiscard]] constexpr explicit operator bool() const noexcept
+        {
+            return m_Handle != InvalidHandle;
+        }
+
       private:
         handle_type m_Handle = InvalidHandle;
     };

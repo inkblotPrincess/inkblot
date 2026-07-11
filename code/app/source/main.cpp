@@ -1,6 +1,8 @@
 #include <inkblot/basic/logging.hpp>
 #include <inkblot/basic/match.hpp>
+#include <inkblot/os/thread.hpp>
 #include <inkblot/gfx/renderer.hpp>
+#include <inkblot/os/thread.hpp>
 #include <inkblot/os/window.hpp>
 
 #include <print>
@@ -53,6 +55,8 @@ auto run() -> void
         ink::log::fatal("Failed to create renderer!");
         return;
     }
+
+    auto Thread = ink::os::thread::make([]([[maybe_unused]] std::stop_token StopToken, int a) noexcept -> void { ink::log::debug("int a = {}", a); }, 30);
 
     auto KeepRunning = true;
     while (KeepRunning) {
