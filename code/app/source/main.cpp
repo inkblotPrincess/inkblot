@@ -45,10 +45,8 @@ auto run() -> void
             }
         });
 
-    const auto Window   = ink::os::window{1080u, 720u};
-    const auto Renderer = ink::gfx::renderer{ink::gfx::api::vulkan, Window.native_handle()};
-
-    auto Thread = ink::os::thread{[]([[maybe_unused]] std::stop_token StopToken, int a) noexcept -> void { ink::log::debug("int a = {}", a); }, 30};
+    const auto Window = ink::os::window{1080u, 720u};
+    auto Renderer     = ink::gfx::renderer{ink::gfx::api::vulkan, Window.native_handle()};
 
     auto KeepRunning = true;
     while (KeepRunning) {
