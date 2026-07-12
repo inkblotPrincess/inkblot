@@ -76,18 +76,21 @@ namespace ink::os
 
         static auto create_thread(thread_id &ThreadId, thread::data_type Data, thread::proc_type Proc) noexcept -> thread::handle_type
             pre(Data != nullptr)
-            pre(Proc != nullptr);
+            pre(Proc != nullptr)
+            post(R: R != nullptr);
 
         template <typename invocation_type>
         static auto trampoline(void *RawData) noexcept -> void
+            pre(RawData != nullptr)
         {
             const auto ThreadId = current_thread_id();
+
             log::register_logging_thread_name(std::format("ink#{}", ThreadId), ThreadId);
             log::info("Starting thread #{}", ThreadId);
 
             auto Data = std::unique_ptr<invocation_type>(static_cast<invocation_type *>(RawData));
             std::apply(
-                []<typename callable_type, typename... arg_types>
+                [&ThreadId]<typename callable_type, typename... arg_types>
                 (callable_type &&Callable, std::shared_ptr<exception_state> ExceptionState, std::stop_token StopToken, arg_types &&...Arguments) {
                     try {
                         std::invoke(std::forward<callable_type>(Callable), StopToken, std::forward<arg_types>(Arguments)...);
@@ -96,7 +99,7 @@ namespace ink::os
                             auto Lock = std::scoped_lock{ExceptionState->Mutex};
                             ExceptionState->Exception = std::current_exception();
                         }
-                        log::error("Exception thrown from thread!");        
+                        log::error("Exception thrown from thread #{}!", ThreadId);        
                     }
                 },
                 std::move(*Data)
