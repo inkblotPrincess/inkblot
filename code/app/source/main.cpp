@@ -1,10 +1,27 @@
+#include <inkblot/basic/error.hpp>
 #include <inkblot/basic/logging.hpp>
 #include <inkblot/basic/match.hpp>
+
 #include <inkblot/gfx/renderer.hpp>
+
 #include <inkblot/os/thread.hpp>
 #include <inkblot/os/window.hpp>
 
+#include <inkblot/profile/memory.hpp>
+
 #include <print>
+
+auto log_memory_snapshot() -> void
+{
+    const auto Snapshot = ink::profile::get_memory_metrics_snapshot();
+    ink::log::debug(
+        "Memory snapshot:\n -> Total Allocations: {}\n -> Live Allocations: {}\n -> Total Allocated Bytes: {}b\n -> Live Allocated Bytes: {}b",
+        Snapshot.TotalAllocations,
+        Snapshot.LiveAllocations,
+        Snapshot.TotalAllocatedBytes,
+        Snapshot.LiveAllocatedBytes
+    );
+}
 
 auto handle_window_event(const ink::os::window_event &WindowEvent) noexcept -> bool
 {
@@ -18,6 +35,8 @@ auto handle_window_event(const ink::os::window_event &WindowEvent) noexcept -> b
             if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
                 ink::log::info("[ESC] Shutting down...");
                 return false;
+            } else if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::m) {
+                log_memory_snapshot();
             }
 
             return true;
@@ -53,10 +72,27 @@ auto run() -> void
     while (KeepRunning) {
         KeepRunning = Window.process_events(handle_window_event);
     }
+    
+    log_memory_snapshot();
 }
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int 
 {
-    run();
+    try {
+        run();
+    } catch (ink::system_exception &Ex) {
+        ink::log::fatal("Unhandled system exception: {} ({})", Ex.what(), Ex.error_code());
+        return 1;
+    } catch (ink::exception &Ex) {
+        ink::log::fatal("Unhandled exception: {}", Ex.what());
+        return 1;
+    } catch (std::runtime_error Ex) {
+        ink::log::fatal("Unhandled runtime error: {}", Ex.what());
+        return 1;
+    } catch (...) {
+        ink::log::fatal("Unrecognised exception type.");
+        return 1;
+    }
+    
     return 0;
 }
