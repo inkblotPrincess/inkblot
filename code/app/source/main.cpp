@@ -33,10 +33,11 @@ auto run() -> void
         .Output = 
             [](const ink::log::record &Record) {
                 std::print(
-                    "[{:%Y-%m-%d %H:%M:%S}] [{}] {} >> {} - {}({}:{})\n", 
+                    "[{:%Y-%m-%d %H:%M:%S}] [{}] {:<{}} >> {} - {}({}:{})\n", 
                     std::chrono::floor<std::chrono::milliseconds>(Record.Timestamp), 
                     Record.Level, 
                     Record.ThreadName,
+                    Record.MaxThreadNameLength,
                     Record.Message, 
                     Record.SourceFile, 
                     Record.SourceLine, 

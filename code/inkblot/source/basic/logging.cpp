@@ -1,5 +1,6 @@
 #include <inkblot/basic/logging.hpp>
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 #include <unordered_map>
@@ -12,6 +13,8 @@ namespace ink::log
     inline std::mutex ThreadNamesMutex;
     inline std::unordered_map<os::thread_id, std::string> ThreadNames;
 
+    inline std::atomic_size_t MaxThreadNameLength = 0zu;
+
     auto push_record_to_sinks(record &Record) -> void
     {
         {
@@ -20,6 +23,8 @@ namespace ink::log
                 Record.ThreadName = It->second;
             }
         }
+
+        Record.MaxThreadNameLength = MaxThreadNameLength.load(std::memory_order_relaxed);
 
         auto Lock = std::scoped_lock{SinksMutex};
         
@@ -32,8 +37,15 @@ namespace ink::log
     {
         auto Lock = std::scoped_lock{ThreadNamesMutex};
 
+        const auto NameLength = Name.size();
+
         const auto [_, Inserted] = ThreadNames.try_emplace(ThreadId, std::move(Name));
         contract_assert(Inserted);
+
+        auto ThreadNameLength = MaxThreadNameLength.load(std::memory_order_relaxed);
+        while (ThreadNameLength < NameLength && !MaxThreadNameLength.compare_exchange_weak(ThreadNameLength, NameLength, std::memory_order_relaxed, std::memory_order_relaxed))
+        {
+        }
     }
 
     auto unregister_logging_thread_name(os::thread_id ThreadId) noexcept -> void

@@ -40,6 +40,7 @@ namespace ink::log
     struct record 
     {
         std::string_view ThreadName;
+        std::size_t      MaxThreadNameLength;
 
         std::string_view Message;
         level            Level;
@@ -113,13 +114,14 @@ namespace ink::log
         const auto FormatResult = std::format_to_n(CharBuffer.data(), CharBuffer.size(), Format, std::forward<arg_types>(Arguments)...);
 
         auto Record = record{
-            .ThreadName   = std::string_view{},
-            .Message      = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
-            .Level        = Level,
-            .SourceFile   = SourceLocation.File,
-            .SourceLine   = SourceLocation.Line,
-            .SourceColumn = SourceLocation.Column,
-            .Timestamp    = std::chrono::system_clock::now()
+            .ThreadName          = std::string_view{},
+            .MaxThreadNameLength = 0zu,
+            .Message             = std::string_view{CharBuffer.data(), std::min(static_cast<std::size_t>(FormatResult.size), CharBuffer.size())},
+            .Level               = Level,
+            .SourceFile          = SourceLocation.File,
+            .SourceLine          = SourceLocation.Line,
+            .SourceColumn        = SourceLocation.Column,
+            .Timestamp           = std::chrono::system_clock::now()
         };
 
         push_record_to_sinks(Record);
