@@ -5,5 +5,5 @@ if(INKBLOT_BUILD_APP)
 endif()
 
 if(INKBLOT_BUILD_TESTS)
-    # add_subdirectory(tests)
+    add_subdirectory(tests)
 endif()

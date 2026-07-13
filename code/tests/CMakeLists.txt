@@ -1,8 +1,8 @@
 include(GoogleTest)
 
-add_executable(inkblot_tests
+add_executable(inkblot_tests)
 
-)
+add_subdirectory(source)
 
 target_link_libraries(inkblot_tests
     PRIVATE
