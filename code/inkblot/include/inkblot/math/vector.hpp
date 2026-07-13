@@ -2,6 +2,7 @@
 
 #include <concepts>
 #include <cstdint>
+#include <cmath>
 
 namespace ink::math
 {
@@ -49,7 +50,7 @@ namespace ink::math
         }
 
         constexpr auto operator/=(value_type Scalar) noexcept -> vector2&
-            pre(Scalar != 0)
+            pre(Scalar != value_type{})
         {
             X /= Scalar;
             Y /= Scalar;
@@ -72,10 +73,11 @@ namespace ink::math
         }
 
         [[nodiscard]] friend constexpr auto operator/(vector2 Vector, value_type Scalar) noexcept -> vector2
-            pre(Scalar != 0)
         {
             return Vector /= Scalar;
         }
+
+        [[nodiscard]] constexpr auto operator==(const vector2 &) const noexcept -> bool = default;
     };
 
     using vec2f = vector2<float>;
@@ -104,6 +106,36 @@ namespace ink::math
         {
         }
 
+        static constexpr auto cross(const vector3 &Left, const vector3 &Right) noexcept -> vector3
+            requires std::is_signed_v<value_type>
+        {
+            const auto I = (Left.Y * Right.Z) - (Left.Z * Right.Y);
+            const auto J = (Left.X * Right.Z) - (Left.Z * Right.X);
+            const auto K = (Left.X * Right.Y) - (Left.Y * Right.X);
+
+            return vector3{I, -J, K};
+        }
+
+        static constexpr auto dot(const vector3 &Left, const vector3 &Right) noexcept -> value_type
+        {
+            return (Left.X * Right.X) + (Left.Y * Right.Y) + (Left.Z * Right.Z);
+        }
+
+        static constexpr auto normalise(const vector3 &Vector) noexcept -> vector3
+            requires std::floating_point<value_type>
+        {
+            const auto Length = Vector.length();
+            contract_assert(Length != value_type{});
+
+            return vector3{Vector.X / Length, Vector.Y / Length, Vector.Z / Length};
+        }
+
+        constexpr auto length() const noexcept -> value_type
+            requires std::floating_point<value_type>
+        {
+            return std::hypot(X, Y, Z);
+        }
+
         constexpr auto operator+=(const vector3 &Other) noexcept -> vector3&
         {
             X += Other.X;
@@ -129,7 +161,7 @@ namespace ink::math
         }
 
         constexpr auto operator/=(value_type Scalar) noexcept -> vector3&
-            pre(Scalar != 0)
+            pre(Scalar != value_type{})
         {
             X /= Scalar;
             Y /= Scalar;
@@ -153,10 +185,11 @@ namespace ink::math
         }
 
         [[nodiscard]] friend constexpr auto operator/(vector3 Vector, value_type Scalar) noexcept -> vector3
-            pre(Scalar != 0)
         {
             return Vector /= Scalar;
         }
+
+        [[nodiscard]] constexpr auto operator==(const vector3 &) const noexcept -> bool = default;
     };
 
     using vec3f = vector3<float>;
@@ -179,12 +212,7 @@ namespace ink::math
         {
         }
 
-        constexpr explicit vector4(
-            value_type XValue,
-            value_type YValue,
-            value_type ZValue,
-            value_type WValue
-        ) noexcept
+        constexpr explicit vector4(value_type XValue, value_type YValue, value_type ZValue, value_type WValue) noexcept
             : X{XValue}
             , Y{YValue}
             , Z{ZValue}
@@ -220,7 +248,7 @@ namespace ink::math
         }
 
         constexpr auto operator/=(value_type Scalar) noexcept -> vector4&
-            pre(Scalar != 0)
+            pre(Scalar != value_type{})
         {
             X /= Scalar;
             Y /= Scalar;
@@ -245,10 +273,11 @@ namespace ink::math
         }
 
         [[nodiscard]] friend constexpr auto operator/(vector4 Vector, value_type Scalar) noexcept -> vector4
-            pre(Scalar != 0)
         {
             return Vector /= Scalar;
         }
+
+        [[nodiscard]] constexpr auto operator==(const vector4 &) const noexcept -> bool = default;
     };
 
     using vec4f = vector4<float>;
