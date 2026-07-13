@@ -1,6 +1,8 @@
 include(FetchContent)
 
-find_package(Vulkan REQUIRED)
+if(INKBLOT_USE_VULKAN)
+    find_package(Vulkan REQUIRED)
+endif()
 
 if(INKBLOT_BUILD_TESTS)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

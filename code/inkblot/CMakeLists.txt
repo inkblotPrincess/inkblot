@@ -3,6 +3,10 @@ add_library(inkblot::inkblot ALIAS inkblot)
 
 add_subdirectory(source)
 
+target_compile_definitions(inkblot PRIVATE
+    $<$<BOOL:${INKBLOT_USE_VULKAN}>:INKBLOT_USE_VULKAN>
+)
+
 target_compile_features(inkblot PUBLIC cxx_std_23)
 
 target_include_directories(inkblot 
@@ -13,7 +17,7 @@ target_include_directories(inkblot
 target_link_libraries(inkblot
     PRIVATE
         inkblot::options
-        Vulkan::Vulkan
+        $<$<BOOL:${INKBLOT_USE_VULKAN}>:Vulkan::Vulkan>
 )
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

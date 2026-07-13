@@ -6,8 +6,9 @@ project(
     LANGUAGES CXX
 )
 
-option(INKBLOT_BUILD_APP   "Build application (exe)" ${PROJECT_IS_TOP_LEVEL})
-option(INKBLOT_BUILD_TESTS "Build tests"             ${PROJECT_IS_TOP_LEVEL})
+option(INKBLOT_BUILD_APP   "Build application (exe)"  ${PROJECT_IS_TOP_LEVEL})
+option(INKBLOT_BUILD_TESTS "Build tests"              ${PROJECT_IS_TOP_LEVEL})
+option(INKBLOT_USE_VULKAN  "Use Vulkan for rendering" ${PROJECT_IS_TOP_LEVEL})
 
 if(PROJECT_IS_TOP_LEVEL)
     if(INKBLOT_BUILD_TESTS)

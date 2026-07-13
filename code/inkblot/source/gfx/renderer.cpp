@@ -3,7 +3,9 @@
 
 #include <inkblot/gfx/renderer.hpp>
 
-#include "vulkan/vulkan_renderer.hpp"
+#if defined(INKBLOT_USE_VULKAN)
+    #include "vulkan/vulkan_renderer.hpp"
+#endif
 
 namespace ink::gfx
 {
@@ -16,8 +18,15 @@ namespace ink::gfx
     auto create_renderer_backend(api API, const renderer::config &Config) -> std::unique_ptr<irenderer_backend>
     {
         switch (API) {
-            case api::vulkan: return std::make_unique<vk::vulkan_renderer>(Config);
-            case api::dx12:   throw exception{"dx12 unimplemented"};
+            case api::vulkan: 
+                #if defined(INKBLOT_USE_VULKAN)
+                    return std::make_unique<vk::vulkan_renderer>(Config);
+                #else
+                    throw exception{"Vulkan not enabled for current platform!"};
+                #endif
+                
+            case api::dx12:
+                throw exception{"DX12 not enabled for current platform!"};
         }
 
         std::unreachable();

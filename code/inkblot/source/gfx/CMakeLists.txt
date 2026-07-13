@@ -2,4 +2,6 @@ target_sources(inkblot PRIVATE
     renderer.cpp
 )
 
-add_subdirectory(vulkan)
+if(INKBLOT_USE_VULKAN)
+    add_subdirectory(vulkan)
+endif()
