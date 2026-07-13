@@ -94,6 +94,7 @@ auto run() -> void
         });
     }
     
+    Renderer.shutdown();
     log_memory_snapshot();
 }
 

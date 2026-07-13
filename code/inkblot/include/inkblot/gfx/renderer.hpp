@@ -42,8 +42,6 @@ namespace ink::gfx
 
         virtual auto begin_frame(std::uint32_t Width, std::uint32_t Height) -> void = 0;
         virtual auto end_frame(const frame_context &Frame) -> void = 0;
-
-        virtual auto cancel_frame() -> void = 0;
     };
 
     class renderer
@@ -64,7 +62,7 @@ namespace ink::gfx
         renderer() = default;
         explicit renderer(api API, const renderer::config &Config);
         
-        ~renderer();
+        ~renderer() = default;
 
         renderer(const renderer &) = delete;
         auto operator=(const renderer &) -> renderer& = delete;
@@ -73,6 +71,8 @@ namespace ink::gfx
         auto operator=(renderer &&) noexcept -> renderer& = delete;
 
         auto resize(std::uint32_t Width, std::uint32_t Height) -> void;
+
+        auto shutdown() -> void;
 
         template <typename func_type>
         requires std::is_invocable_r_v<void, func_type, frame_context&>

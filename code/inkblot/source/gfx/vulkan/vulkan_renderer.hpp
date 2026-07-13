@@ -32,8 +32,6 @@ namespace ink::gfx::vk
         
         auto end_frame(const frame_context &Frame) -> void override;
 
-        auto cancel_frame() -> void override;
-
       private:
         static constexpr auto FramesInFlight = 2zu;
 
@@ -51,5 +49,6 @@ namespace ink::gfx::vk
         std::vector<::VkSemaphore> m_RenderFinished;
 
         bool m_SwapchainNeedsRecreation = false;
+        bool m_FrameStarted = false;
     };
 } // namespace ink::gfx::vk

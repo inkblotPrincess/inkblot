@@ -209,6 +209,7 @@ namespace ink::gfx::vk
         };
 
         ensure_vk(::vkBeginCommandBuffer(Frame.CommandBuffer, &BeginInfo));
+        m_FrameStarted = true;
     }
 
     auto vulkan_renderer::end_frame(const frame_context &FrameContext) -> void
@@ -295,12 +296,7 @@ namespace ink::gfx::vk
         }
 
         m_CurrentFrame = (m_CurrentFrame + 1zu) % m_Frames.size();
-    }
-
-    auto vulkan_renderer::cancel_frame() -> void
-    {
-        // auto &Frame = m_Frames[m_CurrentFrame];
-        // ::vkResetCommandPool(m_Context.logical_device(), Frame.CommandPool, 0u);
+        m_FrameStarted = false;
     }
 
     auto vulkan_renderer::recreate_swapchain(std::uint32_t Width, std::uint32_t Height) -> void

@@ -42,15 +42,20 @@ namespace ink::gfx
     {
     }
 
-    renderer::~renderer()
-    {
-        m_RendererThread.request_stop();
-        m_FramesReady.release();
-    }
-
     auto renderer::resize(std::uint32_t Width, std::uint32_t Height) -> void
     {
         m_Extent.store(pack_extent(Width, Height), std::memory_order_relaxed);
+    }
+
+    auto renderer::shutdown() -> void
+    {
+        m_RendererThread.request_stop();
+        m_FramesReady.release();
+
+        m_RendererThread.join();
+        if (auto Exception = m_RendererThread.exception(); Exception != nullptr) {
+            std::rethrow_exception(Exception);
+        }
     }
 
     auto renderer::get_frame_context(const frame_state OldState, const frame_state NewState) -> std::optional<frame_context&>
@@ -75,7 +80,6 @@ namespace ink::gfx
             
             m_FramesReady.acquire();
             if (StopToken.stop_requested()) { // stop might have been requested while sleeping
-                m_Backend->cancel_frame();
                 break;
             }
             
