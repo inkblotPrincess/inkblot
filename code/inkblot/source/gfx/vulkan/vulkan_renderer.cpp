@@ -2,9 +2,10 @@
 
 namespace ink::gfx::vk
 {
-    vulkan_renderer::vulkan_renderer(const os::window::handle_type &WindowHandle)
+    vulkan_renderer::vulkan_renderer(const renderer::config &Config)
         : m_Allocator{nullptr}
-        , m_Context{WindowHandle, m_Allocator}
+        , m_Context{Config.WindowHandle, m_Allocator}
+        , m_Swapchain{{.Width = Config.Width, .Height = Config.Height, .VSync = Config.UseVSync}, m_Context, m_Allocator}
     {
     }
 

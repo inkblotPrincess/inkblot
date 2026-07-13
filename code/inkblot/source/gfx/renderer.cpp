@@ -7,20 +7,20 @@
 
 namespace ink::gfx
 {
-    auto create_renderer_backend(api API, const os::window::handle_type &WindowHandle) -> std::unique_ptr<irenderer_backend>
+    auto create_renderer_backend(api API, const renderer::config &Config) -> std::unique_ptr<irenderer_backend>
     {
         switch (API) {
-            case api::vulkan: return std::make_unique<vk::vulkan_renderer>(WindowHandle);
+            case api::vulkan: return std::make_unique<vk::vulkan_renderer>(Config);
             case api::dx12:   throw exception{"dx12 unimplemented"};
         }
 
         std::unreachable();
     }
 
-    renderer::renderer(api API, const os::window::handle_type &WindowHandle)
+    renderer::renderer(api API, const renderer::config &Config)
         : m_FramesReady{0}
         , m_SubmissionFrames{}
-        , m_Backend{create_renderer_backend(API, WindowHandle)}
+        , m_Backend{create_renderer_backend(API, Config)}
         , m_RendererThread{[this](std::stop_token StopToken) { renderer_worker(StopToken); }}
     {
     }

@@ -43,8 +43,18 @@ namespace ink::gfx
       public:
         static constexpr auto Frames = 3zu;
 
+        struct config
+        {
+            os::window::handle_type WindowHandle;
+
+            std::uint32_t Width;
+            std::uint32_t Height;
+
+            bool UseVSync;
+        };
+
         renderer() = default;
-        explicit renderer(api API, const os::window::handle_type &WindowHandle);
+        explicit renderer(api API, const renderer::config &Config);
         
         ~renderer();
 

@@ -4,13 +4,14 @@
 
 #include "vulkan.hpp"
 #include "vulkan_context.hpp"
+#include "vulkan_swapchain.hpp"
 
 namespace ink::gfx::vk
 {
     class vulkan_renderer : public irenderer_backend
     {
       public:
-        explicit vulkan_renderer(const os::window::handle_type &WindowHandle);
+        explicit vulkan_renderer(const renderer::config &Config);
         
         ~vulkan_renderer() = default;
 
@@ -19,5 +20,6 @@ namespace ink::gfx::vk
       private:
         ::VkAllocationCallbacks *m_Allocator;
         vulkan_context           m_Context;
+        vulkan_swapchain         m_Swapchain;
     };
 } // namespace ink::gfx::vk

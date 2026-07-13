@@ -50,7 +50,7 @@ namespace ink::gfx::vk
         [[nodiscard]] auto surface() const noexcept -> ::VkSurfaceKHR;
         [[nodiscard]] auto physical_device() const noexcept -> ::VkPhysicalDevice;
         [[nodiscard]] auto logical_device() const noexcept -> ::VkDevice;
-        [[nodiscard]] auto queue_families() const noexcept -> const queues&;
+        [[nodiscard]] auto device_queues() const noexcept -> const queues&;
 
       private:
         auto destroy() noexcept -> void;

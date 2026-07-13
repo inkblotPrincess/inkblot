@@ -341,7 +341,7 @@ namespace ink::gfx::vk
         return m_LogicalDevice;
     }
 
-    auto vulkan_context::queue_families() const noexcept -> const queues&
+    auto vulkan_context::device_queues() const noexcept -> const queues&
     {
         return m_Queues;
     }

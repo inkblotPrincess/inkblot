@@ -65,8 +65,21 @@ auto run() -> void
             }
         });
 
-    const auto Window = ink::os::window{1080u, 720u};
-    auto Renderer     = ink::gfx::renderer{ink::gfx::api::vulkan, Window.native_handle()};
+    constexpr auto WindowWidth  = 1080u;
+    constexpr auto WindowHeight = 720u;
+
+    const auto Window = ink::os::window{WindowWidth, WindowHeight};
+    
+    auto Renderer = ink::gfx::renderer{
+        ink::gfx::api::vulkan, 
+        {
+            .WindowHandle = Window.native_handle(), 
+            
+            .Width    = WindowWidth, 
+            .Height   = WindowHeight, 
+            .UseVSync = true
+        }
+    };
 
     auto KeepRunning = true;
     while (KeepRunning) {
