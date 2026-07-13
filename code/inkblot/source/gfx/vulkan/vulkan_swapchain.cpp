@@ -171,6 +171,21 @@ namespace ink::gfx::vk
         return *this;
     }
 
+    auto vulkan_swapchain::handle() const noexcept -> ::VkSwapchainKHR
+    {
+        return m_Swapchain;
+    }
+
+    auto vulkan_swapchain::image(std::size_t Index) const noexcept -> ::VkImage
+    {
+        return m_Images[Index];
+    }
+
+    auto vulkan_swapchain::image_count() const noexcept -> std::uint32_t
+    {
+        return static_cast<std::uint32_t>(m_Images.size());
+    }
+
     auto vulkan_swapchain::recreate(const vulkan_swapchain::config &Config) -> void
     {
         const auto PhysicalDevice = m_Context->physical_device();
@@ -200,7 +215,7 @@ namespace ink::gfx::vk
             .imageColorSpace  = Format.colorSpace,
             .imageExtent      = Extent,
             .imageArrayLayers = 1u,
-            .imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 
             .imageSharingMode      = SeparateFamilies ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE,
             .queueFamilyIndexCount = SeparateFamilies ? static_cast<std::uint32_t>(QueueFamilyIndices.size()) : 0u,

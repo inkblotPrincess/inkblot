@@ -5,24 +5,7 @@
 
 namespace ink::os
 {
-    static constexpr auto CloseRequestedProp = L"ink.close_requested";
-
     constinit inline auto ClassRegistered = false;
-
-    auto CALLBACK win32_callback(::HWND Handle, ::UINT Message, ::WPARAM Wparam, ::LPARAM Lparam) -> ::LRESULT {
-        switch (Message) {
-            //
-            // ::WM_CLOSE
-            // WM_CLOSE is sent directly to our callback so we have to do this workaround to inform our window
-            // when a close request happened
-            case WM_CLOSE:
-                ::SetPropW(Handle, CloseRequestedProp, reinterpret_cast<::HANDLE>(1));
-                return 0;
-
-            default:
-                return ::DefWindowProcW(Handle, Message, Wparam, Lparam);
-        }
-    }
 
     auto convert_win32_key_to_our_key(::WPARAM Key, ::LPARAM Lparam) noexcept -> window_key
     {
@@ -168,6 +151,59 @@ namespace ink::os
         }
     }
 
+    auto CALLBACK win32_callback(::HWND Handle, ::UINT Message, ::WPARAM Wparam, ::LPARAM Lparam) -> ::LRESULT {
+        auto *Callback = reinterpret_cast<window::callback_type *>(::GetWindowLongPtrW(Handle, GWLP_USERDATA));
+
+        switch (Message) {
+            case WM_CLOSE: {
+                if (Callback != nullptr) {
+                    std::invoke(*Callback, window_quit_event{});
+                }
+            } break;
+
+            case WM_KEYDOWN:
+            case WM_SYSKEYDOWN: {
+                if ((Lparam & (1u << 30)) != 0) { // 30th bit = is repeat press; we ignore these!
+                    break;
+                }
+
+                const auto KeyEvent = window_key_event{
+                    .Key   = convert_win32_key_to_our_key(Wparam, Lparam), 
+                    .State = window_key_state::pressed
+                };
+
+                if (Callback != nullptr) {
+                    std::invoke(*Callback, KeyEvent);
+                }
+            } break;
+            
+            case WM_KEYUP:
+            case WM_SYSKEYUP: {
+                const auto KeyEvent = window_key_event{
+                    .Key   = convert_win32_key_to_our_key(Wparam, Lparam), 
+                    .State = window_key_state::released
+                };
+
+                if (Callback != nullptr) {
+                    std::invoke(*Callback, KeyEvent);
+                }
+            } break;
+
+            case WM_SIZE: {
+                const auto ResizeEvent = window_resize_event{
+                    .Width  = static_cast<std::uint32_t>(LOWORD(Lparam)),
+                    .Height = static_cast<std::uint32_t>(HIWORD(Lparam))
+                };
+
+                if (Callback != nullptr) {
+                    std::invoke(*Callback, ResizeEvent);
+                }
+            } break;
+        }
+
+        return ::DefWindowProcW(Handle, Message, Wparam, Lparam);
+    }
+
     auto window::handle_deleter::operator()(const window::handle_type &Handle) const noexcept -> void
     {
         const auto WindowHandle = static_cast<::HWND>(Handle);
@@ -176,6 +212,7 @@ namespace ink::os
 
     window::window(std::uint32_t Width, std::uint32_t Height)
         : m_Handle{}
+        , m_Callback{std::make_unique<window::callback_type>()}
     {
         if (!ClassRegistered) {
             const auto WindowClass = ::WNDCLASSEXW{
@@ -215,6 +252,8 @@ namespace ink::os
             nullptr);
         win32::ensure_os(Handle != NULL, "Failed to construct Win32 window");
         m_Handle.reset(Handle);
+
+        ::SetWindowLongPtrW(Handle, GWLP_USERDATA, reinterpret_cast<::LONG_PTR>(m_Callback.get()));
     }
 
     auto window::native_handle() const noexcept -> window::handle_type
@@ -222,58 +261,19 @@ namespace ink::os
         return *m_Handle;
     }
 
-    auto window::process_events(const window::callback_type &Callback) const noexcept -> bool
+    auto window::process_events() const noexcept -> void
     {
         const auto Handle = m_Handle.as<::HWND>();
 
         auto Message = ::MSG{};
         while (::PeekMessageW(&Message, Handle, 0, 0, PM_REMOVE)) {
-            switch (Message.message) {
-                case WM_KEYDOWN:
-                case WM_SYSKEYDOWN: {
-                    if ((Message.lParam & (1u << 30)) != 0) { // 30th bit = is repeat press; we ignore these!
-                        break;
-                    }
-
-                    const auto KeyEvent = window_key_event{
-                        .Key   = convert_win32_key_to_our_key(Message.wParam, Message.lParam), 
-                        .State = window_key_state::pressed
-                    };
-
-                    if (!Callback(KeyEvent)) {
-                        return false;
-                    }
-                } break;
-                
-                case WM_KEYUP:
-                case WM_SYSKEYUP: {
-                    const auto KeyEvent = window_key_event{
-                        .Key   = convert_win32_key_to_our_key(Message.wParam, Message.lParam), 
-                        .State = window_key_state::released
-                    };
-
-                    if (!Callback(KeyEvent)) {
-                        return false;
-                    }
-                } break;
-
-                default:
-                    ::TranslateMessage(&Message);
-                    ::DispatchMessageW(&Message);
-            }
+            ::TranslateMessage(&Message);
+            ::DispatchMessageW(&Message);
         }
+    }
 
-        //
-        // ::WM_CLOSE
-        // This has to be handled separately since it won't be sent to the queue that
-        // PeekMessageW looks at.
-        if (::GetPropW(Handle, CloseRequestedProp) != nullptr) {
-            ::RemovePropW(Handle, CloseRequestedProp);
-            if (!Callback(window_quit_event{})) {
-                return false;
-            }
-        }
-
-        return true;
+    auto window::set_callback(window::callback_type Callback) -> void
+    {
+        *m_Callback = std::move(Callback);
     }
 } // namespace ink::os

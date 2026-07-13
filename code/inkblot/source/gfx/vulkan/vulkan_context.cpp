@@ -27,28 +27,79 @@ namespace ink::gfx::vk
     {
         ::VkPhysicalDevice PhysicalDevice = VK_NULL_HANDLE;
         
-        ::VkPhysicalDeviceProperties2 DeviceProperties;
-        ::VkPhysicalDeviceFeatures2   DeviceFeatures;
+        ::VkPhysicalDeviceProperties2      DeviceProperties;
+        ::VkPhysicalDeviceFeatures2        DeviceFeatures;
+        ::VkPhysicalDeviceVulkan13Features Vulkan13Features;
         
         queue_family_indices QueueFamilies;
 
         std::uint64_t Score = 0u;
     };
 
+    auto VKAPI_PTR debug_callback(
+        ::VkDebugUtilsMessageSeverityFlagBitsEXT Severity, 
+        [[maybe_unused]] ::VkDebugUtilsMessageTypeFlagsEXT Type, 
+        const ::VkDebugUtilsMessengerCallbackDataEXT *CallbackData,
+        [[maybe_unused]] void *Data) -> ::VkBool32
+    {
+        const auto Message = CallbackData != nullptr && CallbackData->pMessage != nullptr ? CallbackData->pMessage : "Unknown Vulkan validation message";
+
+        if ((Severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0u) {
+            log::error("Vulkan validation: {}", Message);
+        } else if ((Severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0u) {
+            log::warn("Vulkan validation: {}", Message);
+        }
+
+        return VK_FALSE;
+    }
+
     [[nodiscard]] auto create_instance(const ::VkAllocationCallbacks *Allocator) -> ::VkInstance
         post(R: R != VK_NULL_HANDLE)
     {
+        constexpr auto EnableDebugStuff = true;
+        constexpr auto ValidationLayers = std::array{
+            "VK_LAYER_KHRONOS_validation"
+        };
+
         const auto AppInfo = ::VkApplicationInfo{
             .sType            = VK_STRUCTURE_TYPE_APPLICATION_INFO,
             .pApplicationName = "ink_vk_renderer",
             .apiVersion       = VK_API_VERSION_1_3
         };
 
-        const auto InstanceExtensions = get_platform_extensions();
+        auto InstanceExtensions = get_platform_extensions();
+        if (EnableDebugStuff) {
+            InstanceExtensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        const auto DebugCreateInfo = ::VkDebugUtilsMessengerCreateInfoEXT{
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .pNext = nullptr,
+            .flags = 0u,
+
+            .messageSeverity =
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+
+            .messageType =
+                VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+            
+            .pfnUserCallback = debug_callback,
+            .pUserData       = nullptr
+        };
 
         const auto InstanceCreateInfo = ::VkInstanceCreateInfo{
-            .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-            .pApplicationInfo        = &AppInfo,
+            .sType            = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pNext            = EnableDebugStuff ? &DebugCreateInfo : nullptr,
+            .pApplicationInfo = &AppInfo,
+
+            .enabledLayerCount   = EnableDebugStuff ? static_cast<std::uint32_t>(ValidationLayers.size()) : 0u,
+            .ppEnabledLayerNames = EnableDebugStuff ? ValidationLayers.data() : nullptr,
+
             .enabledExtensionCount   = static_cast<std::uint32_t>(InstanceExtensions.size()),
             .ppEnabledExtensionNames = InstanceExtensions.data(),
         };
@@ -57,6 +108,38 @@ namespace ink::gfx::vk
         ensure_vk(::vkCreateInstance(&InstanceCreateInfo, Allocator, &Instance));
 
         return Instance;
+    }
+
+    [[nodiscard]] auto create_debug_messenger(::VkInstance Instance, const ::VkAllocationCallbacks *Allocator) -> ::VkDebugUtilsMessengerEXT
+        pre(Instance != VK_NULL_HANDLE)
+    {
+        const auto CreateDebugMessenger = reinterpret_cast<::PFN_vkCreateDebugUtilsMessengerEXT>(::vkGetInstanceProcAddr(Instance, "vkCreateDebugUtilsMessengerEXT"));
+        ensure(CreateDebugMessenger != nullptr, "Failed to load vkCreateDebugUtilsMessengerEXT");
+
+        const auto DebugCreateInfo = ::VkDebugUtilsMessengerCreateInfoEXT{
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .pNext = nullptr,
+            .flags = 0u,
+
+            .messageSeverity =
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+
+            .messageType =
+                VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+            
+            .pfnUserCallback = debug_callback,
+            .pUserData       = nullptr
+        };
+
+        auto DebugMessenger = ::VkDebugUtilsMessengerEXT{VK_NULL_HANDLE};
+        ensure_vk(CreateDebugMessenger(Instance, &DebugCreateInfo, Allocator, &DebugMessenger));
+
+        return DebugMessenger;
     }
 
     [[nodiscard]] auto select_physical_device(::VkInstance Instance, ::VkSurfaceKHR Surface) -> physical_device_selection
@@ -74,8 +157,13 @@ namespace ink::gfx::vk
             auto Properties = ::VkPhysicalDeviceProperties2{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
             ::vkGetPhysicalDeviceProperties2(Device, &Properties);
 
-            auto Features = ::VkPhysicalDeviceFeatures2{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+            auto Vulkan13Features = ::VkPhysicalDeviceVulkan13Features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};             
+            auto Features = ::VkPhysicalDeviceFeatures2{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &Vulkan13Features};
             ::vkGetPhysicalDeviceFeatures2(Device, &Features);
+
+            if (Vulkan13Features.synchronization2 != VK_TRUE) {
+                continue;
+            }
 
             auto QueueFamilyCount = std::uint32_t{};
             ::vkGetPhysicalDeviceQueueFamilyProperties(Device, &QueueFamilyCount, nullptr);
@@ -173,6 +261,7 @@ namespace ink::gfx::vk
                     .PhysicalDevice   = Device,
                     .DeviceProperties = Properties,
                     .DeviceFeatures   = Features,
+                    .Vulkan13Features = Vulkan13Features,
                     .QueueFamilies    = QueueFamilies,
                     .Score            = Score
                 };
@@ -205,11 +294,20 @@ namespace ink::gfx::vk
 
         constexpr auto DeviceExtensions = std::array{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-        const auto Features = ::VkPhysicalDeviceFeatures{};
+        auto Vulkan13Features = ::VkPhysicalDeviceVulkan13Features{
+            .sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+            .pNext            = nullptr,
+            .synchronization2 = VK_TRUE
+        };
+
+        const auto Features = ::VkPhysicalDeviceFeatures2{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &Vulkan13Features
+        };
 
         const auto CreateInfo = ::VkDeviceCreateInfo{
             .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext                   = nullptr,
+            .pNext                   = &Features,
             .flags                   = 0u,
             .queueCreateInfoCount    = static_cast<std::uint32_t>(QueueCreateInfos.size()),
             .pQueueCreateInfos       = QueueCreateInfos.data(),
@@ -217,7 +315,7 @@ namespace ink::gfx::vk
             .ppEnabledLayerNames     = nullptr,
             .enabledExtensionCount   = static_cast<std::uint32_t>(DeviceExtensions.size()),
             .ppEnabledExtensionNames = DeviceExtensions.data(),
-            .pEnabledFeatures        = &Features
+            .pEnabledFeatures        = nullptr
         };
 
         auto LogicalDevice = ::VkDevice{VK_NULL_HANDLE};
@@ -266,8 +364,9 @@ namespace ink::gfx::vk
         : m_Allocator{Allocator}
     {
         try {
-            m_Instance = create_instance(m_Allocator);
-            m_Surface  = create_surface(m_Instance, WindowHandle, m_Allocator);
+            m_Instance       = create_instance(m_Allocator);
+            m_DebugMessenger = create_debug_messenger(m_Instance, m_Allocator); 
+            m_Surface        = create_surface(m_Instance, WindowHandle, m_Allocator);
 
             const auto SelectedPhysicalDevice = select_physical_device(m_Instance, m_Surface);
             m_PhysicalDevice = SelectedPhysicalDevice.PhysicalDevice;
@@ -299,6 +398,7 @@ namespace ink::gfx::vk
     vulkan_context::vulkan_context(vulkan_context &&From) noexcept
         : m_Allocator{std::exchange(From.m_Allocator, nullptr)}
         , m_Instance{std::exchange(From.m_Instance, VK_NULL_HANDLE)}
+        , m_DebugMessenger{std::exchange(From.m_DebugMessenger, VK_NULL_HANDLE)}
         , m_Surface{std::exchange(From.m_Surface, VK_NULL_HANDLE)}
         , m_PhysicalDevice{std::exchange(From.m_PhysicalDevice, VK_NULL_HANDLE)}
         , m_LogicalDevice{std::exchange(From.m_LogicalDevice, VK_NULL_HANDLE)}
@@ -313,6 +413,7 @@ namespace ink::gfx::vk
             m_Allocator = std::exchange(From.m_Allocator, nullptr);
 
             m_Instance       = std::exchange(From.m_Instance, VK_NULL_HANDLE);
+            m_DebugMessenger = std::exchange(From.m_DebugMessenger, VK_NULL_HANDLE);
             m_Surface        = std::exchange(From.m_Surface, VK_NULL_HANDLE);
             m_PhysicalDevice = std::exchange(From.m_PhysicalDevice, VK_NULL_HANDLE);
             m_LogicalDevice  = std::exchange(From.m_LogicalDevice, VK_NULL_HANDLE);
@@ -359,6 +460,14 @@ namespace ink::gfx::vk
         if (m_Surface != VK_NULL_HANDLE) {
             ::vkDestroySurfaceKHR(m_Instance, m_Surface, m_Allocator);
             m_Surface = VK_NULL_HANDLE;
+        }
+
+        if (m_DebugMessenger != VK_NULL_HANDLE) {
+            const auto DestroyDebugMessenger = reinterpret_cast<::PFN_vkDestroyDebugUtilsMessengerEXT>(::vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT"));
+
+            if (DestroyDebugMessenger != nullptr) {
+                DestroyDebugMessenger(m_Instance, m_DebugMessenger, m_Allocator);
+            }
         }
 
         if (m_Instance != VK_NULL_HANDLE) {

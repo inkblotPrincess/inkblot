@@ -4,6 +4,8 @@
 
 #include <cstdint>
 #include <format>
+#include <functional>
+#include <memory>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -48,17 +50,23 @@ namespace ink::os
         window_key_state State;
     };
 
+    struct window_resize_event
+    {
+        std::uint32_t Width;
+        std::uint32_t Height;
+    };
+
     struct window_quit_event
     {
         // No payload
     };
 
-    using window_event = std::variant<window_key_event, window_quit_event>;
+    using window_event = std::variant<window_key_event, window_resize_event, window_quit_event>;
 
     class window
     {
       public:
-        using callback_type = bool(*)(const window_event &) noexcept;
+        using callback_type = std::move_only_function<void(const window_event &)>;
         using handle_type   = void*;
 
         window() = delete;
@@ -74,9 +82,11 @@ namespace ink::os
 
         [[nodiscard]] auto native_handle() const noexcept -> window::handle_type;
 
-        [[nodiscard]] auto process_events(const window::callback_type &Callback) const noexcept -> bool
-            pre(native_handle() != nullptr)
-            pre(Callback != nullptr);
+        auto process_events() const noexcept -> void
+            pre(native_handle() != nullptr);
+        
+        auto set_callback(window::callback_type Callback) -> void
+            pre(m_Callback != nullptr);
 
       private:
         struct handle_deleter
@@ -85,6 +95,7 @@ namespace ink::os
         };
         
         unique_handle<window::handle_type, window::handle_deleter> m_Handle;
+        std::unique_ptr<window::callback_type>                     m_Callback;
     };
 
     auto format_to(auto Out, const window_key_event &KeyEvent)

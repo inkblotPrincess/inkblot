@@ -29,6 +29,14 @@ namespace ink::gfx::vk
         vulkan_swapchain(vulkan_swapchain &&From) noexcept;
         auto operator=(vulkan_swapchain &&From) noexcept -> vulkan_swapchain&;
 
+        auto handle() const noexcept -> ::VkSwapchainKHR
+            post(R: R != VK_NULL_HANDLE);
+        
+        auto image(std::size_t Index) const noexcept -> ::VkImage
+            pre(Index < m_Images.size());
+        
+        auto image_count() const noexcept -> std::uint32_t;
+
         auto recreate(const vulkan_swapchain::config &Config) -> void
             pre(m_Context != nullptr);
 

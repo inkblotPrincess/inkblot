@@ -28,20 +28,28 @@ namespace ink::gfx
 
     struct frame_context
     {
-        std::atomic<frame_state> State = frame_state::write_ready; 
+        std::atomic<frame_state> State = frame_state::write_ready;
+
+        float R = 0.0f;
+        float G = 0.0f;
+        float B = 0.0f;
+        float A = 0.0f;
     };
 
     struct irenderer_backend
     {
         virtual ~irenderer_backend() = default;
 
-        virtual auto submit(const frame_context &Context) -> void = 0;
+        virtual auto begin_frame(std::uint32_t Width, std::uint32_t Height) -> void = 0;
+        virtual auto end_frame(const frame_context &Frame) -> void = 0;
+
+        virtual auto cancel_frame() -> void = 0;
     };
 
     class renderer
     {
       public:
-        static constexpr auto Frames = 3zu;
+        static constexpr auto Frames = 2zu;
 
         struct config
         {
@@ -64,19 +72,21 @@ namespace ink::gfx
         renderer(renderer &&) noexcept = delete;
         auto operator=(renderer &&) noexcept -> renderer& = delete;
 
+        auto resize(std::uint32_t Width, std::uint32_t Height) -> void;
+
         template <typename func_type>
         requires std::is_invocable_r_v<void, func_type, frame_context&>
         auto submit(func_type &&Func) -> void
             pre(m_Backend != nullptr)
         {
-            auto Context = get_frame_context(frame_state::write_ready, frame_state::writing);
-            if (!Context.has_value()) { // no submission frames available? drop the frame!
+            auto Frame = get_frame_context(frame_state::write_ready, frame_state::writing);
+            if (!Frame.has_value()) { // no submission frames available? drop the frame!
                 return;
             }
 
-            std::forward<func_type>(Func)(*Context);
+            std::forward<func_type>(Func)(*Frame);
 
-            Context->State.store(frame_state::render_ready, std::memory_order_release);
+            Frame->State.store(frame_state::render_ready, std::memory_order_release);
             m_FramesReady.release();
         }
 
@@ -86,9 +96,13 @@ namespace ink::gfx
 
         auto renderer_worker(std::stop_token StopToken) -> void;
 
-        std::counting_semaphore<Frames>    m_FramesReady;
-        std::array<frame_context, Frames>  m_SubmissionFrames;
+        // We do +1 here so that the renderer can always wake up the renderer thread even if the queue is full
+        std::counting_semaphore<Frames + 1zu> m_FramesReady;
+        std::array<frame_context, Frames>     m_SubmissionFrames;
+
         std::unique_ptr<irenderer_backend> m_Backend;
         os::thread                         m_RendererThread;
+
+        std::atomic_uint64_t m_Extent;
     };
 } // namespace ink::gfx 

@@ -23,27 +23,6 @@ auto log_memory_snapshot() -> void
     );
 }
 
-auto handle_window_event(const ink::os::window_event &WindowEvent) noexcept -> bool
-{
-    return WindowEvent >> ink::match {
-        []([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
-            ink::log::info("Shutting down...");
-            return false;
-        },
-
-        [](const ink::os::window_key_event &KeyEvent) noexcept {
-            if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
-                ink::log::info("[ESC] Shutting down...");
-                return false;
-            } else if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::m) {
-                log_memory_snapshot();
-            }
-
-            return true;
-        }
-    };
-}
-
 auto run() -> void
 {
     ink::log::register_logging_thread_name("main");
@@ -68,8 +47,7 @@ auto run() -> void
     constexpr auto WindowWidth  = 1080u;
     constexpr auto WindowHeight = 720u;
 
-    const auto Window = ink::os::window{WindowWidth, WindowHeight};
-    
+    auto Window   = ink::os::window{WindowWidth, WindowHeight};
     auto Renderer = ink::gfx::renderer{
         ink::gfx::api::vulkan, 
         {
@@ -81,9 +59,39 @@ auto run() -> void
         }
     };
 
-    auto KeepRunning = true;
-    while (KeepRunning) {
-        KeepRunning = Window.process_events(handle_window_event);
+    auto Running = true;
+    const auto HandleEvent = [&Renderer, &Running](const ink::os::window_event &WindowEvent) noexcept {
+        WindowEvent >> ink::match {
+            [&Running]([[maybe_unused]] const ink::os::window_quit_event &) noexcept {
+                ink::log::info("Shutting down...");
+                Running = false;
+            },
+
+            [&Running](const ink::os::window_key_event &KeyEvent) noexcept {
+                if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
+                    ink::log::info("[ESC] Shutting down...");
+                    Running = false;
+                } else if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::m) {
+                    log_memory_snapshot();
+                }
+            },
+
+            [&Renderer](const ink::os::window_resize_event &ResizeEvent) noexcept {
+                Renderer.resize(ResizeEvent.Width, ResizeEvent.Height);
+            }
+        };
+    };
+
+    Window.set_callback(HandleEvent);
+
+    while (Running) {
+        Window.process_events();
+        Renderer.submit([](ink::gfx::frame_context &FrameContext) {
+            FrameContext.R = 1.0f;
+            FrameContext.G = 0.5f;
+            FrameContext.B = 1.0f;
+            FrameContext.A = 1.0f;
+        });
     }
     
     log_memory_snapshot();
