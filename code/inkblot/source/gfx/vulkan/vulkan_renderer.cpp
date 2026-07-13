@@ -222,7 +222,7 @@ namespace ink::gfx::vk
         const auto SwapchainImage = m_Swapchain.image(m_CurrentImage);
 
         const auto ClearColour = ::VkClearColorValue{
-            .float32 = {FrameContext.R, FrameContext.G, FrameContext.B, FrameContext.A}
+            .float32 = {FrameContext.ClearColour.X, FrameContext.ClearColour.Y, FrameContext.ClearColour.Z, FrameContext.ClearColour.W}
         };
 
         transition_image(

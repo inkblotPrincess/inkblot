@@ -1,5 +1,6 @@
 #pragma once
 
+#include <inkblot/math/vector.hpp>
 #include <inkblot/os/thread.hpp>
 #include <inkblot/os/window.hpp>
 
@@ -30,10 +31,7 @@ namespace ink::gfx
     {
         std::atomic<frame_state> State = frame_state::write_ready;
 
-        float R = 0.0f;
-        float G = 0.0f;
-        float B = 0.0f;
-        float A = 0.0f;
+        math::vec4f ClearColour;
     };
 
     struct irenderer_backend

@@ -4,6 +4,8 @@
 
 #include <inkblot/gfx/renderer.hpp>
 
+#include <inkblot/math/vector.hpp>
+
 #include <inkblot/os/thread.hpp>
 #include <inkblot/os/window.hpp>
 
@@ -68,11 +70,20 @@ auto run() -> void
             },
 
             [&Running](const ink::os::window_key_event &KeyEvent) noexcept {
-                if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::escape) {
-                    ink::log::info("[ESC] Shutting down...");
-                    Running = false;
-                } else if (KeyEvent.State == ink::os::window_key_state::pressed && KeyEvent.Key == ink::os::window_key::m) {
-                    log_memory_snapshot();
+                if (KeyEvent.State == ink::os::window_key_state::pressed) {
+                    switch (KeyEvent.Key) {
+                        case ink::os::window_key::escape:
+                            Running = false;
+                            ink::log::info("[ESC] Shutting down...");
+                            break;
+
+                        case ink::os::window_key::m:
+                            log_memory_snapshot();
+                            break;
+
+                        default:
+                            break;
+                    }
                 }
             },
 
@@ -87,10 +98,7 @@ auto run() -> void
     while (Running) {
         Window.process_events();
         Renderer.submit([](ink::gfx::frame_context &FrameContext) {
-            FrameContext.R = 1.0f;
-            FrameContext.G = 0.5f;
-            FrameContext.B = 1.0f;
-            FrameContext.A = 1.0f;
+            FrameContext.ClearColour = ink::math::vec4f{1.0f, 0.5f, 1.0f, 1.0f};
         });
     }
     
