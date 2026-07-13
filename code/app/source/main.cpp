@@ -81,12 +81,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) -> int
     try {
         run();
     } catch (ink::system_exception &Ex) {
-        ink::log::fatal("Unhandled system exception: {} ({})", Ex.what(), Ex.error_code());
+        const auto &Code = Ex.error_code();
+        ink::log::fatal("Unhandled system exception: {} ({}: {})", Ex.what(), Code.value(), Code.message());
         return 1;
     } catch (ink::exception &Ex) {
         ink::log::fatal("Unhandled exception: {}", Ex.what());
         return 1;
-    } catch (std::runtime_error Ex) {
+    } catch (std::runtime_error &Ex) {
         ink::log::fatal("Unhandled runtime error: {}", Ex.what());
         return 1;
     } catch (...) {

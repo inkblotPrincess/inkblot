@@ -1,26 +1,16 @@
 #include <inkblot/basic/error.hpp>
 #include <inkblot/basic/logging.hpp>
+
 #include <inkblot/gfx/renderer.hpp>
+
+#include "vulkan/vulkan_renderer.hpp"
 
 namespace ink::gfx
 {
-    // @TEMP
-    struct dummy_backend : irenderer_backend
-    {
-        dummy_backend([[maybe_unused]] const os::window::handle_type &WindowHandle) 
-        {
-        }
-
-        auto submit([[maybe_unused]] const frame_context &Context) -> void override 
-        {
-            // log::debug("Processing some work!");
-        }
-    };
-
     auto create_renderer_backend(api API, const os::window::handle_type &WindowHandle) -> std::unique_ptr<irenderer_backend>
     {
         switch (API) {
-            case api::vulkan: return std::make_unique<dummy_backend>(WindowHandle);
+            case api::vulkan: return std::make_unique<vk::vulkan_renderer>(WindowHandle);
             case api::dx12:   throw exception{"dx12 unimplemented"};
         }
 

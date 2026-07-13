@@ -13,6 +13,7 @@ target_include_directories(inkblot
 target_link_libraries(inkblot
     PRIVATE
         inkblot::options
+        Vulkan::Vulkan
 )
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

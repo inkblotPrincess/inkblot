@@ -1,5 +1,7 @@
 include(FetchContent)
 
+find_package(Vulkan REQUIRED)
+
 if(INKBLOT_BUILD_TESTS)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     if(MSVC AND INKBLOT_ENABLE_ASAN)
